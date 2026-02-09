@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily5 — Focus Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f3ff;
+  --bg-panel: linear-gradient(180deg, #ede9fe 0%, #f5f3ff 100%);
+  --surface: #ffffff;
+  --surface-hover: #faf8ff;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --primary: #6D28D9;
+  --primary-light: #8b5cf6;
+  --primary-bg: #ede9fe;
+  --primary-bg-light: #f5f3ff;
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --accent-1: #6D28D9;
+  --accent-2: #3b82f6;
+  --accent-3: #10b981;
+  --accent-4: #f59e0b;
+  --accent-5: #ef4444;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 100px;
+  position: relative;
+}
+
+/* Header */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 24px;
+  margin: 0 -24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.5px;
+}
+
+.header-left .tagline {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.date-nav button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.date-nav button:hover:not(:disabled) {
+  background: var(--primary-bg);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.date-nav .current-date {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+  padding: 6px 14px;
+  min-width: 180px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.date-nav .current-date::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%236D28D9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5' /%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+
+.user-badge {
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-badge::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%236D28D9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0' /%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+
+/* Content Panel */
+.content-panel {
+  background: var(--bg-panel);
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 28px 24px;
+  margin: 0 -24px;
+}
+
+/* Stats Row */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow);
+}
+
+.stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon.blue { background: #dbeafe; }
+.stat-icon.green { background: #d1fae5; }
+.stat-icon.purple { background: #ede9fe; }
+
+.stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Add Focus Button (full-width dashed) */
+.add-focus-btn {
+  width: 100%;
+  border: 2px dashed var(--primary-light);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary);
+  transition: all 0.2s;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.add-focus-btn:hover {
+  background: var(--primary-bg-light);
+  border-color: var(--primary);
+}
+
+/* Reminder Banner */
+.reminder-banner {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  margin-bottom: 24px;
+  display: none;
+  animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reminder-banner.visible { display: block; }
+
+.reminder-banner h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-banner h3::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+}
+
+.reminder-banner ul {
+  list-style: none;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.reminder-banner ul li { padding: 2px 0; }
+.reminder-banner ul li::before { content: "— "; color: var(--text-muted); }
+
+.reminder-banner .close-banner {
+  float: right;
+  background: rgba(0,0,0,0.05);
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.reminder-banner .close-banner:hover { background: rgba(0,0,0,0.1); }
+
+/* Cards Grid */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* Focus Card */
+.focus-card {
+  border-radius: var(--radius);
+  padding: 24px;
+  position: relative;
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  overflow: hidden;
+}
+
+.focus-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+/* Card accent stripe at top */
+.focus-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.focus-card[data-color="0"]::before { background: var(--accent-1); }
+.focus-card[data-color="1"]::before { background: var(--accent-2); }
+.focus-card[data-color="2"]::before { background: var(--accent-3); }
+.focus-card[data-color="3"]::before { background: var(--accent-4); }
+.focus-card[data-color="4"]::before { background: var(--accent-5); }
+
+.focus-card:nth-child(1) { animation-delay: 0s; }
+.focus-card:nth-child(2) { animation-delay: 0.06s; }
+.focus-card:nth-child(3) { animation-delay: 0.12s; }
+.focus-card:nth-child(4) { animation-delay: 0.18s; }
+.focus-card:nth-child(5) { animation-delay: 0.24s; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popCheck {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.card-number {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  margin-top: 4px;
+}
+
+.card-header input {
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  width: 100%;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.card-header input:focus {
+  border-bottom-color: var(--border);
+}
+
+.card-header input::placeholder {
+  color: var(--text-muted);
+}
+
+.delete-card {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: 8px;
+  transition: opacity 0.2s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.focus-card:hover .delete-card { opacity: 1; }
+
+.delete-card:hover {
+  color: var(--accent-5);
+  background: #fef2f2;
+}
+
+/* Sub-tasks */
+.subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.subtask-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+  margin: 0 -10px;
+}
+
+.subtask-row:hover {
+  background: #f9fafb;
+}
+
+.subtask-row input[type="checkbox"] {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-strong);
+  border-radius: 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subtask-row input[type="checkbox"]:hover {
+  border-color: var(--primary-light);
+}
+
+.subtask-row input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  animation: popCheck 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.focus-card[data-color="1"] .subtask-row input[type="checkbox"]:checked { background: var(--accent-2); border-color: var(--accent-2); }
+.focus-card[data-color="2"] .subtask-row input[type="checkbox"]:checked { background: var(--accent-3); border-color: var(--accent-3); }
+.focus-card[data-color="3"] .subtask-row input[type="checkbox"]:checked { background: var(--accent-4); border-color: var(--accent-4); }
+.focus-card[data-color="4"] .subtask-row input[type="checkbox"]:checked { background: var(--accent-5); border-color: var(--accent-5); }
+
+.subtask-row input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 4px; left: 7px;
+  width: 5px; height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.subtask-row input[type="text"] {
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  flex: 1;
+  padding: 2px 0;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.subtask-row input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+.subtask-row input[type="text"].completed {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.delete-subtask {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.subtask-row:hover .delete-subtask { opacity: 1; }
+
+.delete-subtask:hover {
+  color: var(--accent-5);
+  background: #fef2f2;
+}
+
+.add-subtask-btn {
+  background: #f9fafb;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: stretch;
+  text-align: center;
+}
+
+.add-subtask-btn:hover {
+  background: var(--primary-bg-light);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Card Progress */
+.card-progress {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.card-progress .progress-track {
+  height: 5px;
+  border-radius: 3px;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+
+.card-progress .progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0%;
+}
+
+.card-progress-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.focus-card[data-color="0"] .card-progress .progress-fill { background: var(--accent-1); }
+.focus-card[data-color="1"] .card-progress .progress-fill { background: var(--accent-2); }
+.focus-card[data-color="2"] .card-progress .progress-fill { background: var(--accent-3); }
+.focus-card[data-color="3"] .card-progress .progress-fill { background: var(--accent-4); }
+.focus-card[data-color="4"] .card-progress .progress-fill { background: var(--accent-5); }
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--surface);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+}
+
+.empty-state-icon svg {
+  width: 36px;
+  height: 36px;
+  color: var(--primary);
+}
+
+.empty-state h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+
+.empty-state-cta {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 32px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.3);
+}
+
+.empty-state-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(109, 40, 217, 0.4);
+}
+
+/* Confetti */
+.confetti-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.confetti-piece {
+  position: absolute;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(100vh) rotate(900deg) scale(0.5); opacity: 0; }
+}
+
+/* Completion glow on card */
+.focus-card.completed-card {
+  border-color: #a7f3d0;
+}
+
+.focus-card.completed-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: radial-gradient(circle at center, rgba(16,185,129,0.04), transparent 70%);
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .app { padding: 0 16px 80px; }
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    margin: 0 -16px 0;
+  }
+  header h1 { font-size: 1.3rem; }
+  .header-right { width: 100%; justify-content: space-between; }
+  .stats-row { flex-direction: column; gap: 10px; }
+  .cards-grid { grid-template-columns: 1fr; gap: 16px; }
+  .date-nav .current-date { min-width: 140px; font-size: 0.8rem; }
+  .focus-card { padding: 20px; }
+  .delete-card { opacity: 1; }
+  .delete-subtask { opacity: 0.6; }
+  .content-panel { padding: 20px 16px; margin: 0 -16px; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+
+/* Auth Screen */
+#auth-screen {
+  position: fixed;
+  inset: 0;
+  background: #ede9fe;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#auth-screen.hidden { display: none; }
+
+.auth-card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(109, 40, 217, 0.12);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 16px;
+}
+
+.auth-card h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.auth-card .auth-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+
+.auth-card label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.auth-card input[type="text"],
+.auth-card input[type="email"],
+.auth-card input[type="password"] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.auth-card input[type="text"]:focus,
+.auth-card input[type="email"]:focus,
+.auth-card input[type="password"]:focus {
+  border-color: var(--primary-light);
+}
+
+.auth-card .auth-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.3);
+  margin-top: 4px;
+}
+
+.auth-card .auth-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(109, 40, 217, 0.4);
+}
+
+.auth-card .auth-error {
+  color: var(--accent-5);
+  font-size: 0.8rem;
+  min-height: 1.2em;
+  margin-bottom: 8px;
+}
+
+.auth-card .auth-toggle {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.auth-card .auth-toggle a {
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.auth-card .auth-toggle a:hover { text-decoration: underline; }
+
+/* Logout button */
+.logout-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: #fef2f2;
+  border-color: var(--accent-5);
+  color: var(--accent-5);
+}
+
+/* Settings Button */
+.settings-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-btn:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Settings Modal */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.settings-overlay.hidden { display: none; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.settings-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  padding: 32px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.settings-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-modal .settings-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.settings-modal label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.settings-modal input[type="text"] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.settings-modal input[type="text"]:focus {
+  border-color: var(--primary-light);
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.settings-toggle-row span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-strong);
+  border-radius: 24px;
+  transition: background 0.25s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.25s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--primary);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.settings-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-test-email {
+  background: var(--primary-bg);
+  border: 1px solid var(--primary-light);
+  color: var(--primary);
+}
+
+.btn-test-email:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-close-settings {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.btn-close-settings:hover {
+  background: #f3f4f6;
+}
+
+.settings-status {
+  font-size: 0.8rem;
+  margin-top: 12px;
+  min-height: 1.2em;
+  text-align: center;
+}
+
+.settings-status.success { color: var(--accent-3); }
+.settings-status.error { color: var(--accent-5); }
+
+.settings-info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  color: #0369a1;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+<div id="auth-screen">
+  <div class="auth-card">
+    <h2>Daily5</h2>
+    <p class="auth-subtitle" id="auth-subtitle">Sign in to your account</p>
+    <form id="auth-form" autocomplete="off">
+      <label for="auth-email">Email</label>
+      <input type="email" id="auth-email" placeholder="Enter your email" autocomplete="off">
+      <label for="auth-password">Password</label>
+      <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
+      <div id="confirm-password-group" style="display:none;">
+        <label for="auth-password-confirm">Confirm Password</label>
+        <input type="password" id="auth-password-confirm" placeholder="Re-enter your password" autocomplete="off">
+      </div>
+      <div class="auth-error" id="auth-error"></div>
+      <button type="submit" class="auth-btn" id="auth-btn">Sign In</button>
+    </form>
+    <div class="auth-toggle" id="auth-toggle">
+      Don't have an account? <a id="auth-switch">Sign up</a>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="header-left">
+      <h1>Daily5</h1>
+      <p class="tagline">Your Daily Focus Board</p>
+    </div>
+    <div class="header-right">
+      <div class="date-nav">
+        <button id="prev-day">&larr;</button>
+        <span class="current-date" id="current-date"></span>
+        <button id="next-day">&rarr;</button>
+      </div>
+      <div class="user-badge" id="user-badge">User</div>
+      <button class="settings-btn" id="settings-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+      </button>
+      <button class="logout-btn" id="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <div class="content-panel">
+    <div class="reminder-banner" id="reminder-banner">
+      <button class="close-banner" id="close-banner">&times;</button>
+      <h3>Yesterday's Incomplete Items</h3>
+      <ul id="reminder-list"></ul>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3b82f6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#3b82f6"/></svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value" id="stat-focuses">0/5</span>
+          <span class="stat-label">Focuses Set</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="#10b981"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value" id="stat-completed">0%</span>
+          <span class="stat-label">Completed</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#6D28D9"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value" id="stat-avg">0%</span>
+          <span class="stat-label">Avg Progress</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="add-focus-container"></div>
+
+    <div class="cards-grid" id="cards-grid"></div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <div class="empty-state-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+      </div>
+      <h2>Start Your Day Strong</h2>
+      <p>Add up to 5 focus areas to guide your day</p>
+      <button class="empty-state-cta" id="empty-cta">Add Your First Focus</button>
+    </div>
+  </div>
+</div>
+
+<div class="settings-overlay hidden" id="settings-overlay">
+  <div class="settings-modal">
+    <h2>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="var(--primary)"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/></svg>
+      Email Reminders
+    </h2>
+    <p class="settings-subtitle">Get progress reports at 11:00 AM and 4:00 PM (Istanbul time)</p>
+
+    <div class="settings-info">
+      Emails are sent via EmailJS when this tab is open. If the tab is closed at the scheduled time, that email will be skipped. Set up a free account at <strong>emailjs.com</strong> first.
+    </div>
+
+    <div class="settings-toggle-row">
+      <span>Enable email reminders</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="email-enabled">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <label for="emailjs-service-id">EmailJS Service ID</label>
+    <input type="text" id="emailjs-service-id" placeholder="e.g. service_xxxxxxx">
+
+    <label for="emailjs-template-id">EmailJS Template ID</label>
+    <input type="text" id="emailjs-template-id" placeholder="e.g. template_xxxxxxx">
+
+    <label for="emailjs-public-key">EmailJS Public Key</label>
+    <input type="text" id="emailjs-public-key" placeholder="e.g. your_public_key">
+
+    <div class="settings-actions">
+      <button class="btn-test-email" id="btn-test-email">Send Test Email</button>
+      <button class="btn-close-settings" id="btn-close-settings">Close</button>
+    </div>
+
+    <div class="settings-status" id="settings-status"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const ACCENTS = ['0','1','2','3','4'];
+
+  let currentUser = null;
+  let STORAGE_PREFIX = 'daily5_';
+  let currentDate = todayStr();
+  let data = { focuses: [] };
+
+  // --- Auth helpers ---
+  function hashPassword(password) {
+    // Simple deterministic hash (djb2 variant)
+    let h1 = 5381;
+    let h2 = 52711;
+    for (let i = 0; i < password.length; i++) {
+      const ch = password.charCodeAt(i);
+      h1 = (h1 * 33) ^ ch;
+      h2 = (h2 * 33) ^ ch;
+    }
+    return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+  }
+
+  // In-memory fallback in case localStorage doesn't work on file://
+  var _usersCache = null;
+
+  function getUsers() {
+    if (_usersCache) return _usersCache;
+    try {
+      _usersCache = JSON.parse(localStorage.getItem('daily5_users')) || {};
+    } catch(e) {
+      _usersCache = {};
+    }
+    return _usersCache;
+  }
+
+  function saveUsers(users) {
+    _usersCache = users;
+    try { localStorage.setItem('daily5_users', JSON.stringify(users)); } catch(e) {}
+  }
+
+  function emailToKey(email) {
+    // Normalize email for use as storage key
+    return email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  }
+
+  function setSession(email) {
+    currentUser = email;
+    localStorage.setItem('daily5_currentUser', email);
+    STORAGE_PREFIX = 'daily5_' + emailToKey(email) + '_';
+    document.getElementById('user-badge').textContent = email;
+    document.getElementById('auth-screen').classList.add('hidden');
+    currentDate = todayStr();
+    data = loadDay(currentDate);
+    render();
+    if (currentDate === todayStr()) checkReminders();
+    if (typeof startEmailScheduler === 'function') startEmailScheduler();
+  }
+
+  function clearSession() {
+    currentUser = null;
+    localStorage.removeItem('daily5_currentUser');
+    STORAGE_PREFIX = 'daily5_';
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('auth-error').textContent = '';
+    document.getElementById('auth-email').value = '';
+    document.getElementById('auth-password').value = '';
+    document.getElementById('auth-password-confirm').value = '';
+    authMode = 'signin';
+    updateAuthUI();
+  }
+
+  // --- Auth UI ---
+  let authMode = 'signin'; // 'signin' | 'signup'
+
+  function updateAuthUI() {
+    const subtitle = document.getElementById('auth-subtitle');
+    const btn = document.getElementById('auth-btn');
+    const toggle = document.getElementById('auth-toggle');
+    const confirmGroup = document.getElementById('confirm-password-group');
+    document.getElementById('auth-error').textContent = '';
+
+    if (authMode === 'signin') {
+      subtitle.textContent = 'Sign in to your account';
+      btn.textContent = 'Sign In';
+      confirmGroup.style.display = 'none';
+      toggle.innerHTML = 'Don\'t have an account? <a id="auth-switch">Sign up</a>';
+    } else {
+      subtitle.textContent = 'Create a new account';
+      btn.textContent = 'Sign Up';
+      confirmGroup.style.display = 'block';
+      toggle.innerHTML = 'Already have an account? <a id="auth-switch">Sign in</a>';
+    }
+  }
+
+  // Single delegated listener — no stacking
+  document.getElementById('auth-toggle').addEventListener('click', (e) => {
+    if (e.target.id === 'auth-switch') {
+      authMode = authMode === 'signin' ? 'signup' : 'signin';
+      updateAuthUI();
+    }
+  });
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  document.getElementById('auth-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var email = document.getElementById('auth-email').value.trim();
+    var password = document.getElementById('auth-password').value;
+    var errorEl = document.getElementById('auth-error');
+    errorEl.textContent = '';
+
+    if (!email) { errorEl.textContent = 'Email is required.'; return; }
+    if (!isValidEmail(email)) { errorEl.textContent = 'Please enter a valid email address.'; return; }
+    if (password.length < 4) { errorEl.textContent = 'Password must be at least 4 characters.'; return; }
+
+    var users = getUsers();
+    var hashed = hashPassword(password);
+    var key = email.toLowerCase();
+
+    console.log('[Daily5 Auth] mode:', authMode, 'key:', key, 'users:', JSON.stringify(users));
+
+    if (authMode === 'signup') {
+      var confirmPassword = document.getElementById('auth-password-confirm').value;
+      if (password !== confirmPassword) { errorEl.textContent = 'Passwords do not match.'; return; }
+      if (users[key]) { errorEl.textContent = 'An account with this email already exists.'; return; }
+      users[key] = { passwordHash: hashed, createdAt: new Date().toISOString() };
+      saveUsers(users);
+      console.log('[Daily5 Auth] Signed up, saved users:', localStorage.getItem('daily5_users'));
+      setSession(key);
+    } else {
+      if (!users[key]) { errorEl.textContent = 'No account found with this email.'; return; }
+      if (users[key].passwordHash !== hashed) { errorEl.textContent = 'Incorrect password.'; return; }
+      console.log('[Daily5 Auth] Sign in success');
+      setSession(key);
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', clearSession);
+
+  updateAuthUI();
+
+  // --- App logic ---
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function formatDate(dateStr) {
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const today = todayStr();
+    const yesterday = shiftDate(today, -1);
+    if (dateStr === today) return 'Today \u2014 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (dateStr === yesterday) return 'Yesterday \u2014 ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function shiftDate(dateStr, days) {
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate() + days);
+    return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  }
+
+  function loadDay(dateStr) {
+    const raw = localStorage.getItem(STORAGE_PREFIX + dateStr);
+    if (raw) {
+      try { return JSON.parse(raw); } catch(e) {}
+    }
+    return { focuses: [] };
+  }
+
+  function saveDay() {
+    localStorage.setItem(STORAGE_PREFIX + currentDate, JSON.stringify(data));
+  }
+
+  function calcFocusProgress(focus) {
+    if (!focus.subtasks || focus.subtasks.length === 0) return 0;
+    const done = focus.subtasks.filter(s => s.done).length;
+    return Math.round((done / focus.subtasks.length) * 100);
+  }
+
+  function calcOverall() {
+    if (data.focuses.length === 0) return 0;
+    const total = data.focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0);
+    return Math.round(total / data.focuses.length);
+  }
+
+  function calcCompletedPct() {
+    if (data.focuses.length === 0) return 0;
+    const completed = data.focuses.filter(f => (f.subtasks || []).length > 0 && calcFocusProgress(f) === 100).length;
+    return Math.round((completed / data.focuses.length) * 100);
+  }
+
+  function updateStats() {
+    document.getElementById('stat-focuses').textContent = data.focuses.length + '/5';
+    document.getElementById('stat-completed').textContent = calcCompletedPct() + '%';
+    document.getElementById('stat-avg').textContent = calcOverall() + '%';
+  }
+
+  function render() {
+    document.getElementById('current-date').textContent = formatDate(currentDate);
+
+    const isToday = currentDate === todayStr();
+    const nextBtn = document.getElementById('next-day');
+    nextBtn.disabled = isToday;
+    nextBtn.style.opacity = isToday ? '0.25' : '1';
+    nextBtn.style.pointerEvents = isToday ? 'none' : 'auto';
+
+    updateStats();
+
+    const grid = document.getElementById('cards-grid');
+    grid.innerHTML = '';
+
+    const emptyState = document.getElementById('empty-state');
+    const addContainer = document.getElementById('add-focus-container');
+
+    if (data.focuses.length === 0) {
+      emptyState.style.display = 'flex';
+      addContainer.innerHTML = '';
+      grid.style.display = 'none';
+    } else {
+      emptyState.style.display = 'none';
+      grid.style.display = 'grid';
+
+      if (data.focuses.length < 5) {
+        addContainer.innerHTML = '<button class="add-focus-btn" id="add-focus-btn">+ Add New Focus</button>';
+        document.getElementById('add-focus-btn').addEventListener('click', addFocus);
+      } else {
+        addContainer.innerHTML = '';
+      }
+
+      data.focuses.forEach((focus, fi) => {
+        const card = document.createElement('div');
+        card.className = 'focus-card';
+        const progress = calcFocusProgress(focus);
+        if (progress === 100 && (focus.subtasks || []).length > 0) card.classList.add('completed-card');
+        card.setAttribute('data-color', ACCENTS[fi % 5]);
+
+        let subtasksHtml = '';
+        (focus.subtasks || []).forEach((st, si) => {
+          subtasksHtml += `
+            <div class="subtask-row">
+              <input type="checkbox" ${st.done ? 'checked' : ''} data-fi="${fi}" data-si="${si}">
+              <input type="text" value="${escHtml(st.name)}" placeholder="What needs doing?" class="${st.done ? 'completed' : ''}" data-fi="${fi}" data-si="${si}">
+              <button class="delete-subtask" data-fi="${fi}" data-si="${si}">&times;</button>
+            </div>`;
+        });
+
+        card.innerHTML = `
+          <span class="card-number">${fi + 1} / 5</span>
+          <div class="card-header">
+            <input type="text" value="${escHtml(focus.title)}" placeholder="What's your focus?" data-fi="${fi}" class="focus-title-input">
+            <button class="delete-card" data-fi="${fi}">&times;</button>
+          </div>
+          <div class="subtasks">${subtasksHtml}</div>
+          ${(focus.subtasks || []).length < 3 ? `<button class="add-subtask-btn" data-fi="${fi}">+ Add sub-task</button>` : ''}
+          <div class="card-progress">
+            <div class="card-progress-label">${progress}%</div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${progress}%"></div>
+            </div>
+          </div>`;
+
+        grid.appendChild(card);
+      });
+    }
+
+    attachCardListeners();
+  }
+
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addFocus() {
+    if (data.focuses.length >= 5) return;
+    data.focuses.push({ title: '', subtasks: [] });
+    saveDay();
+    render();
+    const inputs = document.querySelectorAll('.focus-title-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }
+
+  function attachCardListeners() {
+    document.querySelectorAll('.focus-title-input').forEach(input => {
+      input.addEventListener('input', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        data.focuses[fi].title = e.target.value;
+        saveDay();
+        updateStats();
+      });
+    });
+
+    document.querySelectorAll('.delete-card').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        data.focuses.splice(fi, 1);
+        saveDay();
+        render();
+      });
+    });
+
+    document.querySelectorAll('.add-subtask-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        if ((data.focuses[fi].subtasks || []).length >= 3) return;
+        if (!data.focuses[fi].subtasks) data.focuses[fi].subtasks = [];
+        data.focuses[fi].subtasks.push({ name: '', done: false });
+        saveDay();
+        render();
+        const rows = document.querySelectorAll(`.subtask-row input[type="text"][data-fi="${fi}"]`);
+        if (rows.length) rows[rows.length - 1].focus();
+      });
+    });
+
+    document.querySelectorAll('.subtask-row input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        const si = parseInt(e.target.dataset.si);
+        data.focuses[fi].subtasks[si].done = e.target.checked;
+        saveDay();
+        render();
+        if (calcOverall() === 100) triggerConfetti();
+      });
+    });
+
+    document.querySelectorAll('.subtask-row input[type="text"]').forEach(input => {
+      input.addEventListener('input', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        const si = parseInt(e.target.dataset.si);
+        data.focuses[fi].subtasks[si].name = e.target.value;
+        saveDay();
+      });
+    });
+
+    document.querySelectorAll('.delete-subtask').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        const si = parseInt(e.target.dataset.si);
+        data.focuses[fi].subtasks.splice(si, 1);
+        saveDay();
+        render();
+      });
+    });
+  }
+
+  // Empty state CTA
+  document.getElementById('empty-cta').addEventListener('click', addFocus);
+
+  // Date navigation
+  document.getElementById('prev-day').addEventListener('click', () => {
+    currentDate = shiftDate(currentDate, -1);
+    data = loadDay(currentDate);
+    render();
+  });
+
+  document.getElementById('next-day').addEventListener('click', () => {
+    if (currentDate === todayStr()) return;
+    currentDate = shiftDate(currentDate, 1);
+    data = loadDay(currentDate);
+    render();
+  });
+
+  // Reminders
+  function checkReminders() {
+    const yesterday = shiftDate(todayStr(), -1);
+    const yData = loadDay(yesterday);
+    if (!yData.focuses || yData.focuses.length === 0) return;
+
+    const incomplete = [];
+    yData.focuses.forEach(f => {
+      if (!f.title) return;
+      const pct = calcFocusProgress(f);
+      if (pct < 100) incomplete.push(f.title + ' (' + pct + '%)');
+    });
+
+    if (incomplete.length === 0) return;
+
+    const banner = document.getElementById('reminder-banner');
+    const list = document.getElementById('reminder-list');
+    list.innerHTML = incomplete.map(i => '<li>' + escHtml(i) + '</li>').join('');
+    banner.classList.add('visible');
+
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(perm => {
+          if (perm === 'granted') sendNotification(incomplete);
+        });
+      } else if (Notification.permission === 'granted') {
+        sendNotification(incomplete);
+      }
+    }
+  }
+
+  function sendNotification(incomplete) {
+    new Notification('Daily5 \u2014 Incomplete Items', {
+      body: incomplete.join(', '),
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\ud83d\udccb</text></svg>'
+    });
+  }
+
+  document.getElementById('close-banner').addEventListener('click', () => {
+    document.getElementById('reminder-banner').classList.remove('visible');
+  });
+
+  // Confetti
+  function triggerConfetti() {
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+
+    const colors = ['#6D28D9','#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#a78bfa','#67e8f9'];
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.top = '-10px';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDuration = (2 + Math.random() * 2.5) + 's';
+      piece.style.animationDelay = Math.random() * 0.6 + 's';
+      const size = 4 + Math.random() * 8;
+      piece.style.width = size + 'px';
+      piece.style.height = (size * (0.4 + Math.random() * 0.6)) + 'px';
+      piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      container.appendChild(piece);
+    }
+    setTimeout(() => container.remove(), 5000);
+  }
+
+  // --- Email Reminder Settings ---
+  function getEmailSettings() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'email_settings')) || {};
+    } catch(e) { return {}; }
+  }
+
+  function saveEmailSettings(settings) {
+    localStorage.setItem(STORAGE_PREFIX + 'email_settings', JSON.stringify(settings));
+  }
+
+  function loadSettingsUI() {
+    const s = getEmailSettings();
+    document.getElementById('email-enabled').checked = !!s.enabled;
+    document.getElementById('emailjs-service-id').value = s.serviceId || '';
+    document.getElementById('emailjs-template-id').value = s.templateId || '';
+    document.getElementById('emailjs-public-key').value = s.publicKey || '';
+    document.getElementById('settings-status').textContent = '';
+    document.getElementById('settings-status').className = 'settings-status';
+  }
+
+  function readSettingsFromUI() {
+    return {
+      enabled: document.getElementById('email-enabled').checked,
+      serviceId: document.getElementById('emailjs-service-id').value.trim(),
+      templateId: document.getElementById('emailjs-template-id').value.trim(),
+      publicKey: document.getElementById('emailjs-public-key').value.trim()
+    };
+  }
+
+  // Save on every input change
+  ['email-enabled', 'emailjs-service-id', 'emailjs-template-id', 'emailjs-public-key'].forEach(id => {
+    document.getElementById(id).addEventListener(id === 'email-enabled' ? 'change' : 'input', () => {
+      saveEmailSettings(readSettingsFromUI());
+    });
+  });
+
+  // Settings modal open/close
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    loadSettingsUI();
+    document.getElementById('settings-overlay').classList.remove('hidden');
+  });
+
+  document.getElementById('btn-close-settings').addEventListener('click', () => {
+    document.getElementById('settings-overlay').classList.add('hidden');
+  });
+
+  document.getElementById('settings-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('settings-overlay')) {
+      document.getElementById('settings-overlay').classList.add('hidden');
+    }
+  });
+
+  // Build email body from current day's data
+  function buildProgressReport(timeLabel) {
+    const today = todayStr();
+    const dayData = loadDay(today);
+    const focuses = dayData.focuses || [];
+
+    if (focuses.length === 0) return null;
+
+    const overallPct = (() => {
+      if (focuses.length === 0) return 0;
+      const total = focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0);
+      return Math.round(total / focuses.length);
+    })();
+
+    let lines = [];
+    lines.push('Daily5 Progress Report — ' + timeLabel);
+    lines.push('Date: ' + today);
+    lines.push('Overall Progress: ' + overallPct + '%');
+    lines.push('');
+
+    focuses.forEach((f, i) => {
+      const pct = calcFocusProgress(f);
+      const status = pct === 100 ? 'DONE' : 'IN PROGRESS';
+      const title = f.title || '(Untitled Focus)';
+      lines.push((i + 1) + '. ' + title + ' — ' + pct + '% [' + status + ']');
+
+      (f.subtasks || []).forEach(st => {
+        const check = st.done ? '[x]' : '[ ]';
+        const name = st.name || '(unnamed)';
+        lines.push('   ' + check + ' ' + name);
+      });
+      lines.push('');
+    });
+
+    if (overallPct < 100) {
+      const incomplete = focuses.filter(f => calcFocusProgress(f) < 100);
+      lines.push('You have ' + incomplete.length + ' focus area(s) still in progress.');
+      lines.push('Keep going — you\'ve got this!');
+    } else {
+      lines.push('All focuses complete! Great work today!');
+    }
+
+    return {
+      subject: 'Daily5 Progress Report — ' + timeLabel,
+      message: lines.join('\n')
+    };
+  }
+
+  // Send email via EmailJS
+  function sendEmailReport(timeLabel) {
+    const s = getEmailSettings();
+    if (!s.enabled || !s.serviceId || !s.templateId || !s.publicKey) return;
+    if (!currentUser) return;
+
+    const report = buildProgressReport(timeLabel);
+    if (!report) return;
+
+    emailjs.send(s.serviceId, s.templateId, {
+      to_email: currentUser,
+      subject: report.subject,
+      message: report.message
+    }, s.publicKey).then(function() {
+      console.log('[Daily5] Email sent for ' + timeLabel);
+    }, function(err) {
+      console.error('[Daily5] Email send failed:', err);
+    });
+  }
+
+  // Test email
+  document.getElementById('btn-test-email').addEventListener('click', () => {
+    const statusEl = document.getElementById('settings-status');
+    const s = readSettingsFromUI();
+
+    if (!s.serviceId || !s.templateId || !s.publicKey) {
+      statusEl.textContent = 'Please fill in all EmailJS fields first.';
+      statusEl.className = 'settings-status error';
+      return;
+    }
+
+    if (!currentUser) {
+      statusEl.textContent = 'You must be logged in to send a test email.';
+      statusEl.className = 'settings-status error';
+      return;
+    }
+
+    statusEl.textContent = 'Sending...';
+    statusEl.className = 'settings-status';
+
+    const report = buildProgressReport('Test');
+    const message = report ? report.message : 'This is a test email from Daily5. Your email reminders are working!';
+
+    emailjs.send(s.serviceId, s.templateId, {
+      to_email: currentUser,
+      subject: 'Daily5 — Test Email',
+      message: message
+    }, s.publicKey).then(function() {
+      statusEl.textContent = 'Test email sent successfully!';
+      statusEl.className = 'settings-status success';
+    }, function(err) {
+      statusEl.textContent = 'Failed: ' + (err.text || err.message || 'Unknown error');
+      statusEl.className = 'settings-status error';
+    });
+  });
+
+  // --- Email Scheduler ---
+  function getIstanbulTime() {
+    const now = new Date();
+    const istanbulStr = now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' });
+    return new Date(istanbulStr);
+  }
+
+  function checkEmailSchedule() {
+    if (!currentUser) return;
+
+    const s = getEmailSettings();
+    if (!s.enabled || !s.serviceId || !s.templateId || !s.publicKey) return;
+
+    const istanbul = getIstanbulTime();
+    const hour = istanbul.getHours();
+    const minute = istanbul.getMinutes();
+    const dateStr = istanbul.getFullYear() + '-' + String(istanbul.getMonth() + 1).padStart(2, '0') + '-' + String(istanbul.getDate()).padStart(2, '0');
+
+    const slots = [
+      { hour: 11, minute: 0, label: '11:00 AM', key: '_11' },
+      { hour: 16, minute: 0, label: '4:00 PM', key: '_16' }
+    ];
+
+    slots.forEach(slot => {
+      if (hour === slot.hour && minute === slot.minute) {
+        const sentKey = STORAGE_PREFIX + 'email_sent_' + dateStr + slot.key;
+        if (!localStorage.getItem(sentKey)) {
+          localStorage.setItem(sentKey, '1');
+          sendEmailReport(slot.label);
+        }
+      }
+    });
+  }
+
+  let emailCheckInterval = null;
+
+  function startEmailScheduler() {
+    if (emailCheckInterval) clearInterval(emailCheckInterval);
+    emailCheckInterval = setInterval(checkEmailSchedule, 60000);
+    checkEmailSchedule();
+  }
+
+  // Init — check for existing session
+  const savedUser = localStorage.getItem('daily5_currentUser');
+  if (savedUser) {
+    setSession(savedUser);
+  }
+
+})();
+</script>
+</body>
+</html>
