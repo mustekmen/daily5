@@ -84,6 +84,7 @@ header {
   display: flex;
   align-items: center;
   gap: 2px;
+  position: relative;
 }
 
 .date-nav button {
@@ -116,6 +117,14 @@ header {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.date-nav .current-date:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 .date-nav .current-date::before {
@@ -697,6 +706,7 @@ header {
   .delete-card { opacity: 1; }
   .delete-subtask { opacity: 0.6; }
   .content-panel { padding: 20px 16px; margin: 0 -16px; }
+  .calendar-popup { left: 50%; transform: translateX(-50%); width: calc(100vw - 32px); max-width: 320px; }
 }
 
 /* Scrollbar */
@@ -1045,6 +1055,118 @@ header {
   margin-bottom: 20px;
   line-height: 1.5;
 }
+/* Calendar Popup */
+.calendar-popup {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 16px;
+  z-index: 1000;
+  width: 300px;
+}
+.calendar-popup.hidden { display: none; }
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.calendar-header button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.calendar-header button:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+.calendar-header .cal-month-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.calendar-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.calendar-dow span {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendar-grid button {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  transition: all 0.15s;
+}
+.calendar-grid button:hover:not(:disabled):not(.cal-selected) {
+  background: var(--primary-bg);
+}
+.calendar-grid button.cal-today {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.calendar-grid button.cal-selected {
+  background: var(--primary);
+  color: #fff;
+}
+.calendar-grid button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.4;
+}
+.calendar-grid button.cal-blank {
+  visibility: hidden;
+}
+.calendar-today-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  background: var(--primary-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  transition: background 0.2s;
+}
+.calendar-today-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
 </style>
 </head>
 <body>
@@ -1081,6 +1203,18 @@ header {
         <button id="prev-day">&larr;</button>
         <span class="current-date" id="current-date"></span>
         <button id="next-day">&rarr;</button>
+        <div class="calendar-popup hidden" id="calendar-popup">
+          <div class="calendar-header">
+            <button id="cal-prev-month">&larr;</button>
+            <span class="cal-month-label" id="cal-month-label"></span>
+            <button id="cal-next-month">&rarr;</button>
+          </div>
+          <div class="calendar-dow">
+            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+          </div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+          <button class="calendar-today-btn" id="cal-today-btn">Today</button>
+        </div>
       </div>
       <div class="user-badge" id="user-badge">User</div>
       <button class="settings-btn" id="settings-btn">
@@ -1544,6 +1678,99 @@ header {
     currentDate = shiftDate(currentDate, 1);
     data = loadDay(currentDate);
     render();
+  });
+
+  // Calendar popup
+  const calPopup = document.getElementById('calendar-popup');
+  const calGrid = document.getElementById('calendar-grid');
+  const calMonthLabel = document.getElementById('cal-month-label');
+  let calYear, calMonth; // 0-indexed month
+
+  function toggleCalendar() {
+    if (calPopup.classList.contains('hidden')) {
+      const [y, m] = currentDate.split('-').map(Number);
+      calYear = y;
+      calMonth = m - 1;
+      renderCalendar();
+      calPopup.classList.remove('hidden');
+    } else {
+      calPopup.classList.add('hidden');
+    }
+  }
+
+  function renderCalendar() {
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    calMonthLabel.textContent = monthNames[calMonth] + ' ' + calYear;
+
+    const today = todayStr();
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const blanks = (firstDay + 6) % 7; // Monday-based
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+    let html = '';
+    for (let i = 0; i < blanks; i++) {
+      html += '<button class="cal-blank" disabled></button>';
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const isFuture = ds > today;
+      const isToday = ds === today;
+      const isSelected = ds === currentDate;
+      let cls = '';
+      if (isToday) cls += ' cal-today';
+      if (isSelected) cls += ' cal-selected';
+      html += '<button' + (cls ? ' class="' + cls.trim() + '"' : '') + (isFuture ? ' disabled' : '') + ' data-date="' + ds + '">' + d + '</button>';
+    }
+    calGrid.innerHTML = html;
+
+    // Update next-month button disabled state
+    const todayDate = new Date();
+    const nextMonthBtn = document.getElementById('cal-next-month');
+    if (calYear > todayDate.getFullYear() || (calYear === todayDate.getFullYear() && calMonth >= todayDate.getMonth())) {
+      nextMonthBtn.disabled = true;
+    } else {
+      nextMonthBtn.disabled = false;
+    }
+  }
+
+  document.getElementById('current-date').addEventListener('click', toggleCalendar);
+
+  calGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-date]');
+    if (!btn || btn.disabled) return;
+    currentDate = btn.dataset.date;
+    data = loadDay(currentDate);
+    render();
+    calPopup.classList.add('hidden');
+  });
+
+  document.getElementById('cal-prev-month').addEventListener('click', () => {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+  });
+
+  document.getElementById('cal-next-month').addEventListener('click', () => {
+    const todayDate = new Date();
+    if (calYear === todayDate.getFullYear() && calMonth >= todayDate.getMonth()) return;
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+  });
+
+  document.getElementById('cal-today-btn').addEventListener('click', () => {
+    currentDate = todayStr();
+    data = loadDay(currentDate);
+    render();
+    calPopup.classList.add('hidden');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!calPopup.classList.contains('hidden') &&
+        !calPopup.contains(e.target) &&
+        !e.target.closest('.current-date')) {
+      calPopup.classList.add('hidden');
+    }
   });
 
   // Reminders
