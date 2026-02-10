@@ -586,6 +586,46 @@ header {
   letter-spacing: 0.5px;
 }
 
+/* Manual Progress Controls */
+.manual-progress-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.progress-btn {
+  flex: 1;
+  min-width: 50px;
+  padding: 8px 4px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.progress-btn:hover {
+  border-color: var(--primary-light);
+  background: var(--primary-bg-light);
+  color: var(--primary);
+}
+
+.progress-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.focus-card[data-color="1"] .progress-btn.active { background: var(--accent-2); border-color: var(--accent-2); }
+.focus-card[data-color="2"] .progress-btn.active { background: var(--accent-3); border-color: var(--accent-3); }
+.focus-card[data-color="3"] .progress-btn.active { background: var(--accent-4); border-color: var(--accent-4); }
+.focus-card[data-color="4"] .progress-btn.active { background: var(--accent-5); border-color: var(--accent-5); }
+
 .focus-card[data-color="0"] .card-progress .progress-fill { background: var(--accent-1); }
 .focus-card[data-color="1"] .card-progress .progress-fill { background: var(--accent-2); }
 .focus-card[data-color="2"] .card-progress .progress-fill { background: var(--accent-3); }
@@ -1493,7 +1533,9 @@ header {
   }
 
   function calcFocusProgress(focus) {
-    if (!focus.subtasks || focus.subtasks.length === 0) return 0;
+    if (!focus.subtasks || focus.subtasks.length === 0) {
+      return focus.manualProgress !== undefined ? focus.manualProgress : 0;
+    }
     const done = focus.subtasks.filter(s => s.done).length;
     return Math.round((done / focus.subtasks.length) * 100);
   }
@@ -1565,6 +1607,16 @@ header {
             </div>`;
         });
 
+        const hasSubtasks = (focus.subtasks || []).length > 0;
+        const manualProgressHtml = !hasSubtasks ? `
+          <div class="manual-progress-controls">
+            <button class="progress-btn ${progress === 0 ? 'active' : ''}" data-fi="${fi}" data-progress="0">0%</button>
+            <button class="progress-btn ${progress === 25 ? 'active' : ''}" data-fi="${fi}" data-progress="25">25%</button>
+            <button class="progress-btn ${progress === 50 ? 'active' : ''}" data-fi="${fi}" data-progress="50">50%</button>
+            <button class="progress-btn ${progress === 75 ? 'active' : ''}" data-fi="${fi}" data-progress="75">75%</button>
+            <button class="progress-btn ${progress === 100 ? 'active' : ''}" data-fi="${fi}" data-progress="100">100%</button>
+          </div>` : '';
+
         card.innerHTML = `
           <span class="card-number">${fi + 1} / 5</span>
           <div class="card-header">
@@ -1578,6 +1630,7 @@ header {
             <div class="progress-track">
               <div class="progress-fill" style="width:${progress}%"></div>
             </div>
+            ${manualProgressHtml}
           </div>`;
 
         grid.appendChild(card);
@@ -1625,6 +1678,10 @@ header {
         if ((data.focuses[fi].subtasks || []).length >= 3) return;
         if (!data.focuses[fi].subtasks) data.focuses[fi].subtasks = [];
         data.focuses[fi].subtasks.push({ name: '', done: false });
+        // Clear manual progress when adding first subtask
+        if (data.focuses[fi].manualProgress !== undefined) {
+          delete data.focuses[fi].manualProgress;
+        }
         saveDay();
         render();
         const rows = document.querySelectorAll(`.subtask-row input[type="text"][data-fi="${fi}"]`);
@@ -1657,8 +1714,23 @@ header {
         const fi = parseInt(e.target.dataset.fi);
         const si = parseInt(e.target.dataset.si);
         data.focuses[fi].subtasks.splice(si, 1);
+        // If all subtasks deleted, reset to manual progress mode
+        if (data.focuses[fi].subtasks.length === 0) {
+          data.focuses[fi].manualProgress = 0;
+        }
         saveDay();
         render();
+      });
+    });
+
+    document.querySelectorAll('.progress-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        const progress = parseInt(e.target.dataset.progress);
+        data.focuses[fi].manualProgress = progress;
+        saveDay();
+        render();
+        if (calcOverall() === 100) triggerConfetti();
       });
     });
   }
