@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily5 — Focus Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1356,66 +1360,58 @@ header {
 
 <script>
 (function() {
+  // Firebase initialization
+  const firebaseConfig = {
+  apiKey: "AIzaSyB3DkzIEXquTj9fkfK1EZTa8Izo-2f2CuU",
+  authDomain: "daily5-app.firebaseapp.com",
+  projectId: "daily5-app",
+  storageBucket: "daily5-app.firebasestorage.app",
+  messagingSenderId: "524870334578",
+  appId: "1:524870334578:web:e4c5ec684c935d9b982aeb",
+  measurementId: "G-8W1PVPX3K8"
+};
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // Enable offline persistence
+  db.enablePersistence().catch((err) => {
+    console.warn('[Daily5] Offline persistence:', err.code);
+  });
+
   const ACCENTS = ['0','1','2','3','4'];
 
-  let currentUser = null;
-  let STORAGE_PREFIX = 'daily5_';
+  let currentUser = null; // Will store Firebase UID
+  let currentUserEmail = null;
   let currentDate = todayStr();
   let data = { focuses: [] };
 
-  // --- Auth helpers ---
-  function hashPassword(password) {
-    // Simple deterministic hash (djb2 variant)
-    let h1 = 5381;
-    let h2 = 52711;
-    for (let i = 0; i < password.length; i++) {
-      const ch = password.charCodeAt(i);
-      h1 = (h1 * 33) ^ ch;
-      h2 = (h2 * 33) ^ ch;
-    }
-    return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
-  }
+  // --- Session Management ---
+  async function setSession(user) {
+    currentUser = user.uid;
+    currentUserEmail = user.email;
 
-  // In-memory fallback in case localStorage doesn't work on file://
-  var _usersCache = null;
+    await db.collection('users').doc(user.uid).set({
+      email: user.email,
+      lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
 
-  function getUsers() {
-    if (_usersCache) return _usersCache;
-    try {
-      _usersCache = JSON.parse(localStorage.getItem('daily5_users')) || {};
-    } catch(e) {
-      _usersCache = {};
-    }
-    return _usersCache;
-  }
-
-  function saveUsers(users) {
-    _usersCache = users;
-    try { localStorage.setItem('daily5_users', JSON.stringify(users)); } catch(e) {}
-  }
-
-  function emailToKey(email) {
-    // Normalize email for use as storage key
-    return email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  }
-
-  function setSession(email) {
-    currentUser = email;
-    localStorage.setItem('daily5_currentUser', email);
-    STORAGE_PREFIX = 'daily5_' + emailToKey(email) + '_';
-    document.getElementById('user-badge').textContent = email;
+    document.getElementById('user-badge').textContent = user.email;
     document.getElementById('auth-screen').classList.add('hidden');
+
     currentDate = todayStr();
-    data = loadDay(currentDate);
+    await loadDayFromFirestore(currentDate);
     render();
-    if (currentDate === todayStr()) checkReminders();
+
+    if (currentDate === todayStr()) await checkReminders();
     if (typeof startEmailScheduler === 'function') startEmailScheduler();
   }
 
   function clearSession() {
+    auth.signOut();
     currentUser = null;
-    localStorage.removeItem('daily5_currentUser');
-    STORAGE_PREFIX = 'daily5_';
+    currentUserEmail = null;
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('auth-error').textContent = '';
     document.getElementById('auth-email').value = '';
@@ -1460,36 +1456,44 @@ header {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
-  document.getElementById('auth-form').addEventListener('submit', function(e) {
+  // Auth form submission
+  document.getElementById('auth-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    var email = document.getElementById('auth-email').value.trim();
-    var password = document.getElementById('auth-password').value;
-    var errorEl = document.getElementById('auth-error');
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errorEl = document.getElementById('auth-error');
     errorEl.textContent = '';
 
     if (!email) { errorEl.textContent = 'Email is required.'; return; }
-    if (!isValidEmail(email)) { errorEl.textContent = 'Please enter a valid email address.'; return; }
-    if (password.length < 4) { errorEl.textContent = 'Password must be at least 4 characters.'; return; }
+    if (!isValidEmail(email)) { errorEl.textContent = 'Please enter a valid email.'; return; }
+    if (password.length < 6) { errorEl.textContent = 'Password must be at least 6 characters.'; return; }
 
-    var users = getUsers();
-    var hashed = hashPassword(password);
-    var key = email.toLowerCase();
+    try {
+      if (authMode === 'signup') {
+        const confirmPassword = document.getElementById('auth-password-confirm').value;
+        if (password !== confirmPassword) {
+          errorEl.textContent = 'Passwords do not match.';
+          return;
+        }
 
-    console.log('[Daily5 Auth] mode:', authMode, 'key:', key, 'users:', JSON.stringify(users));
+        const userCred = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection('users').doc(userCred.user.uid).set({
+          email: email,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
-    if (authMode === 'signup') {
-      var confirmPassword = document.getElementById('auth-password-confirm').value;
-      if (password !== confirmPassword) { errorEl.textContent = 'Passwords do not match.'; return; }
-      if (users[key]) { errorEl.textContent = 'An account with this email already exists.'; return; }
-      users[key] = { passwordHash: hashed, createdAt: new Date().toISOString() };
-      saveUsers(users);
-      console.log('[Daily5 Auth] Signed up, saved users:', localStorage.getItem('daily5_users'));
-      setSession(key);
-    } else {
-      if (!users[key]) { errorEl.textContent = 'No account found with this email.'; return; }
-      if (users[key].passwordHash !== hashed) { errorEl.textContent = 'Incorrect password.'; return; }
-      console.log('[Daily5 Auth] Sign in success');
-      setSession(key);
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+    } catch (error) {
+      const errorMap = {
+        'auth/email-already-in-use': 'This email is already registered.',
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/too-many-requests': 'Too many attempts. Try again later.',
+        'auth/network-request-failed': 'Network error. Check your connection.'
+      };
+      errorEl.textContent = errorMap[error.code] || error.message;
     }
   });
 
@@ -1520,16 +1524,65 @@ header {
     return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
   }
 
-  function loadDay(dateStr) {
-    const raw = localStorage.getItem(STORAGE_PREFIX + dateStr);
-    if (raw) {
-      try { return JSON.parse(raw); } catch(e) {}
+  // Load day from Firestore
+  async function loadDayFromFirestore(dateStr) {
+    if (!currentUser) {
+      data = { focuses: [] };
+      return;
     }
-    return { focuses: [] };
+
+    try {
+      const docRef = db.collection('users').doc(currentUser)
+        .collection('dailyData').doc(dateStr);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        data = doc.data();
+        if (!data.focuses) data.focuses = [];
+      } else {
+        data = { focuses: [] };
+      }
+    } catch (error) {
+      console.error('[Daily5] Load error:', error);
+      data = { focuses: [] };
+      showToast('Failed to load data. Check connection.', 'error');
+    }
   }
 
-  function saveDay() {
-    localStorage.setItem(STORAGE_PREFIX + currentDate, JSON.stringify(data));
+  // Save day to Firestore (debounced)
+  let saveTimeout = null;
+  async function saveDayToFirestore() {
+    if (!currentUser) return;
+
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      try {
+        await db.collection('users').doc(currentUser)
+          .collection('dailyData').doc(currentDate)
+          .set({
+            date: currentDate,
+            focuses: data.focuses,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+      } catch (error) {
+        console.error('[Daily5] Save error:', error);
+        showToast('Failed to save. Changes may be lost.', 'error');
+      }
+    }, 500);
+  }
+
+  // Toast notification helper
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed; bottom: 20px; right: 20px;
+      background: ${type === 'error' ? '#ef4444' : '#10b981'};
+      color: white; padding: 12px 20px; border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10001;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
 
   function calcFocusProgress(focus) {
@@ -1647,7 +1700,7 @@ header {
   function addFocus() {
     if (data.focuses.length >= 5) return;
     data.focuses.push({ title: '', subtasks: [] });
-    saveDay();
+    saveDayToFirestore();
     render();
     const inputs = document.querySelectorAll('.focus-title-input');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -1658,7 +1711,7 @@ header {
       input.addEventListener('input', e => {
         const fi = parseInt(e.target.dataset.fi);
         data.focuses[fi].title = e.target.value;
-        saveDay();
+        saveDayToFirestore();
         updateStats();
       });
     });
@@ -1667,7 +1720,7 @@ header {
       btn.addEventListener('click', e => {
         const fi = parseInt(e.target.dataset.fi);
         data.focuses.splice(fi, 1);
-        saveDay();
+        saveDayToFirestore();
         render();
       });
     });
@@ -1682,7 +1735,7 @@ header {
         if (data.focuses[fi].manualProgress !== undefined) {
           delete data.focuses[fi].manualProgress;
         }
-        saveDay();
+        saveDayToFirestore();
         render();
         const rows = document.querySelectorAll(`.subtask-row input[type="text"][data-fi="${fi}"]`);
         if (rows.length) rows[rows.length - 1].focus();
@@ -1694,7 +1747,7 @@ header {
         const fi = parseInt(e.target.dataset.fi);
         const si = parseInt(e.target.dataset.si);
         data.focuses[fi].subtasks[si].done = e.target.checked;
-        saveDay();
+        saveDayToFirestore();
         render();
         if (calcOverall() === 100) triggerConfetti();
       });
@@ -1705,7 +1758,7 @@ header {
         const fi = parseInt(e.target.dataset.fi);
         const si = parseInt(e.target.dataset.si);
         data.focuses[fi].subtasks[si].name = e.target.value;
-        saveDay();
+        saveDayToFirestore();
       });
     });
 
@@ -1718,7 +1771,7 @@ header {
         if (data.focuses[fi].subtasks.length === 0) {
           data.focuses[fi].manualProgress = 0;
         }
-        saveDay();
+        saveDayToFirestore();
         render();
       });
     });
@@ -1728,7 +1781,7 @@ header {
         const fi = parseInt(e.target.dataset.fi);
         const progress = parseInt(e.target.dataset.progress);
         data.focuses[fi].manualProgress = progress;
-        saveDay();
+        saveDayToFirestore();
         render();
         if (calcOverall() === 100) triggerConfetti();
       });
@@ -1739,16 +1792,16 @@ header {
   document.getElementById('empty-cta').addEventListener('click', addFocus);
 
   // Date navigation
-  document.getElementById('prev-day').addEventListener('click', () => {
+  document.getElementById('prev-day').addEventListener('click', async () => {
     currentDate = shiftDate(currentDate, -1);
-    data = loadDay(currentDate);
+    await loadDayFromFirestore(currentDate);
     render();
   });
 
-  document.getElementById('next-day').addEventListener('click', () => {
+  document.getElementById('next-day').addEventListener('click', async () => {
     if (currentDate === todayStr()) return;
     currentDate = shiftDate(currentDate, 1);
-    data = loadDay(currentDate);
+    await loadDayFromFirestore(currentDate);
     render();
   });
 
@@ -1807,11 +1860,11 @@ header {
 
   document.getElementById('current-date').addEventListener('click', toggleCalendar);
 
-  calGrid.addEventListener('click', (e) => {
+  calGrid.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-date]');
     if (!btn || btn.disabled) return;
     currentDate = btn.dataset.date;
-    data = loadDay(currentDate);
+    await loadDayFromFirestore(currentDate);
     render();
     calPopup.classList.add('hidden');
   });
@@ -1830,9 +1883,9 @@ header {
     renderCalendar();
   });
 
-  document.getElementById('cal-today-btn').addEventListener('click', () => {
+  document.getElementById('cal-today-btn').addEventListener('click', async () => {
     currentDate = todayStr();
-    data = loadDay(currentDate);
+    await loadDayFromFirestore(currentDate);
     render();
     calPopup.classList.add('hidden');
   });
@@ -1846,33 +1899,39 @@ header {
   });
 
   // Reminders
-  function checkReminders() {
+  async function checkReminders() {
+    if (!currentUser) return;
+
     const yesterday = shiftDate(todayStr(), -1);
-    const yData = loadDay(yesterday);
-    if (!yData.focuses || yData.focuses.length === 0) return;
 
-    const incomplete = [];
-    yData.focuses.forEach(f => {
-      if (!f.title) return;
-      const pct = calcFocusProgress(f);
-      if (pct < 100) incomplete.push(f.title + ' (' + pct + '%)');
-    });
+    try {
+      const doc = await db.collection('users').doc(currentUser)
+        .collection('dailyData').doc(yesterday).get();
 
-    if (incomplete.length === 0) return;
+      if (!doc.exists) return;
 
-    const banner = document.getElementById('reminder-banner');
-    const list = document.getElementById('reminder-list');
-    list.innerHTML = incomplete.map(i => '<li>' + escHtml(i) + '</li>').join('');
-    banner.classList.add('visible');
+      const yData = doc.data();
+      if (!yData.focuses || yData.focuses.length === 0) return;
 
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then(perm => {
-          if (perm === 'granted') sendNotification(incomplete);
-        });
-      } else if (Notification.permission === 'granted') {
+      const incomplete = [];
+      yData.focuses.forEach(f => {
+        if (!f.title) return;
+        const pct = calcFocusProgress(f);
+        if (pct < 100) incomplete.push(f.title + ' (' + pct + '%)');
+      });
+
+      if (incomplete.length === 0) return;
+
+      const banner = document.getElementById('reminder-banner');
+      const list = document.getElementById('reminder-list');
+      list.innerHTML = incomplete.map(i => '<li>' + escHtml(i) + '</li>').join('');
+      banner.classList.add('visible');
+
+      if ('Notification' in window && Notification.permission === 'granted') {
         sendNotification(incomplete);
       }
+    } catch (error) {
+      console.error('[Daily5] Reminders error:', error);
     }
   }
 
@@ -1912,18 +1971,33 @@ header {
   }
 
   // --- Email Reminder Settings ---
-  function getEmailSettings() {
+  async function getEmailSettings() {
+    if (!currentUser) return {};
+
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'email_settings')) || {};
-    } catch(e) { return {}; }
+      const doc = await db.collection('users').doc(currentUser)
+        .collection('settings').doc('email').get();
+      return doc.exists ? doc.data() : {};
+    } catch (error) {
+      console.error('[Daily5] Settings load error:', error);
+      return {};
+    }
   }
 
-  function saveEmailSettings(settings) {
-    localStorage.setItem(STORAGE_PREFIX + 'email_settings', JSON.stringify(settings));
+  async function saveEmailSettings(settings) {
+    if (!currentUser) return;
+
+    try {
+      await db.collection('users').doc(currentUser)
+        .collection('settings').doc('email').set(settings);
+    } catch (error) {
+      console.error('[Daily5] Settings save error:', error);
+      showToast('Failed to save settings', 'error');
+    }
   }
 
-  function loadSettingsUI() {
-    const s = getEmailSettings();
+  async function loadSettingsUI() {
+    const s = await getEmailSettings();
     document.getElementById('email-enabled').checked = !!s.enabled;
     document.getElementById('emailjs-service-id').value = s.serviceId || '';
     document.getElementById('emailjs-template-id').value = s.templateId || '';
@@ -1943,8 +2017,8 @@ header {
 
   // Save on every input change
   ['email-enabled', 'emailjs-service-id', 'emailjs-template-id', 'emailjs-public-key'].forEach(id => {
-    document.getElementById(id).addEventListener(id === 'email-enabled' ? 'change' : 'input', () => {
-      saveEmailSettings(readSettingsFromUI());
+    document.getElementById(id).addEventListener(id === 'email-enabled' ? 'change' : 'input', async () => {
+      await saveEmailSettings(readSettingsFromUI());
     });
   });
 
@@ -1965,86 +2039,84 @@ header {
   });
 
   // Build email body from current day's data
-  function buildProgressReport(timeLabel) {
+  async function buildProgressReport(timeLabel) {
+    if (!currentUser) return null;
     const today = todayStr();
-    const dayData = loadDay(today);
-    const focuses = dayData.focuses || [];
 
-    if (focuses.length === 0) return null;
+    try {
+      const doc = await db.collection('users').doc(currentUser)
+        .collection('dailyData').doc(today).get();
 
-    const overallPct = (() => {
-      if (focuses.length === 0) return 0;
-      const total = focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0);
-      return Math.round(total / focuses.length);
-    })();
+      if (!doc.exists) return null;
 
-    let lines = [];
-    lines.push('Daily5 Progress Report — ' + timeLabel);
-    lines.push('Date: ' + today);
-    lines.push('Overall Progress: ' + overallPct + '%');
-    lines.push('');
+      const dayData = doc.data();
+      const focuses = dayData.focuses || [];
+      if (focuses.length === 0) return null;
 
-    focuses.forEach((f, i) => {
-      const pct = calcFocusProgress(f);
-      const status = pct === 100 ? 'DONE' : 'IN PROGRESS';
-      const title = f.title || '(Untitled Focus)';
-      lines.push((i + 1) + '. ' + title + ' — ' + pct + '% [' + status + ']');
+      const overallPct = Math.round(
+        focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0) / focuses.length
+      );
 
-      (f.subtasks || []).forEach(st => {
-        const check = st.done ? '[x]' : '[ ]';
-        const name = st.name || '(unnamed)';
-        lines.push('   ' + check + ' ' + name);
+      let lines = [
+        'Daily5 Progress Report — ' + timeLabel,
+        'Date: ' + today,
+        'Overall Progress: ' + overallPct + '%',
+        ''
+      ];
+
+      focuses.forEach((f, i) => {
+        const pct = calcFocusProgress(f);
+        lines.push(`${i + 1}. ${f.title || '(Untitled)'} — ${pct}% [${pct === 100 ? 'DONE' : 'IN PROGRESS'}]`);
+        (f.subtasks || []).forEach(st => {
+          lines.push(`   ${st.done ? '[x]' : '[ ]'} ${st.name || '(unnamed)'}`);
+        });
+        lines.push('');
       });
-      lines.push('');
-    });
 
-    if (overallPct < 100) {
-      const incomplete = focuses.filter(f => calcFocusProgress(f) < 100);
-      lines.push('You have ' + incomplete.length + ' focus area(s) still in progress.');
-      lines.push('Keep going — you\'ve got this!');
-    } else {
-      lines.push('All focuses complete! Great work today!');
+      if (overallPct < 100) {
+        const incomplete = focuses.filter(f => calcFocusProgress(f) < 100).length;
+        lines.push(`You have ${incomplete} focus area(s) still in progress.`);
+        lines.push("Keep going — you've got this!");
+      } else {
+        lines.push('All focuses complete! Great work today!');
+      }
+
+      return {
+        subject: 'Daily5 Progress Report — ' + timeLabel,
+        message: lines.join('\n')
+      };
+    } catch (error) {
+      console.error('[Daily5] Report error:', error);
+      return null;
     }
-
-    return {
-      subject: 'Daily5 Progress Report — ' + timeLabel,
-      message: lines.join('\n')
-    };
   }
 
   // Send email via EmailJS
-  function sendEmailReport(timeLabel) {
-    const s = getEmailSettings();
-    if (!s.enabled || !s.serviceId || !s.templateId || !s.publicKey) return;
-    if (!currentUser) return;
+  async function sendEmailReport(timeLabel) {
+    const s = await getEmailSettings();
+    if (!s.enabled || !currentUser) return;
 
-    const report = buildProgressReport(timeLabel);
+    const report = await buildProgressReport(timeLabel);
     if (!report) return;
 
     emailjs.send(s.serviceId, s.templateId, {
-      to_email: currentUser,
+      to_email: currentUserEmail,
       subject: report.subject,
       message: report.message
-    }, s.publicKey).then(function() {
-      console.log('[Daily5] Email sent for ' + timeLabel);
-    }, function(err) {
-      console.error('[Daily5] Email send failed:', err);
+    }, s.publicKey).then(() => {
+      console.log('[Daily5] Email sent:', timeLabel);
+    }).catch(err => {
+      console.error('[Daily5] Email failed:', err);
     });
   }
 
   // Test email
-  document.getElementById('btn-test-email').addEventListener('click', () => {
+  document.getElementById('btn-test-email').addEventListener('click', async () => {
     const statusEl = document.getElementById('settings-status');
     const s = readSettingsFromUI();
 
     if (!s.serviceId || !s.templateId || !s.publicKey) {
-      statusEl.textContent = 'Please fill in all EmailJS fields first.';
-      statusEl.className = 'settings-status error';
-      return;
-    }
-
-    if (!currentUser) {
-      statusEl.textContent = 'You must be logged in to send a test email.';
+      statusEl.textContent = 'Please fill in all EmailJS fields.';
       statusEl.className = 'settings-status error';
       return;
     }
@@ -2052,18 +2124,18 @@ header {
     statusEl.textContent = 'Sending...';
     statusEl.className = 'settings-status';
 
-    const report = buildProgressReport('Test');
-    const message = report ? report.message : 'This is a test email from Daily5. Your email reminders are working!';
+    const report = await buildProgressReport('Test');
+    const message = report ? report.message : 'Test email from Daily5!';
 
     emailjs.send(s.serviceId, s.templateId, {
-      to_email: currentUser,
+      to_email: currentUserEmail,
       subject: 'Daily5 — Test Email',
       message: message
-    }, s.publicKey).then(function() {
+    }, s.publicKey).then(() => {
       statusEl.textContent = 'Test email sent successfully!';
       statusEl.className = 'settings-status success';
-    }, function(err) {
-      statusEl.textContent = 'Failed: ' + (err.text || err.message || 'Unknown error');
+    }).catch(err => {
+      statusEl.textContent = 'Failed: ' + (err.text || 'Unknown error');
       statusEl.className = 'settings-status error';
     });
   });
@@ -2075,31 +2147,36 @@ header {
     return new Date(istanbulStr);
   }
 
-  function checkEmailSchedule() {
+  async function checkEmailSchedule() {
     if (!currentUser) return;
 
-    const s = getEmailSettings();
+    const s = await getEmailSettings();
     if (!s.enabled || !s.serviceId || !s.templateId || !s.publicKey) return;
 
     const istanbul = getIstanbulTime();
     const hour = istanbul.getHours();
     const minute = istanbul.getMinutes();
-    const dateStr = istanbul.getFullYear() + '-' + String(istanbul.getMonth() + 1).padStart(2, '0') + '-' + String(istanbul.getDate()).padStart(2, '0');
+    const dateStr = istanbul.getFullYear() + '-' +
+      String(istanbul.getMonth() + 1).padStart(2, '0') + '-' +
+      String(istanbul.getDate()).padStart(2, '0');
 
     const slots = [
       { hour: 11, minute: 0, label: '11:00 AM', key: '_11' },
       { hour: 16, minute: 0, label: '4:00 PM', key: '_16' }
     ];
 
-    slots.forEach(slot => {
+    for (const slot of slots) {
       if (hour === slot.hour && minute === slot.minute) {
-        const sentKey = STORAGE_PREFIX + 'email_sent_' + dateStr + slot.key;
-        if (!localStorage.getItem(sentKey)) {
-          localStorage.setItem(sentKey, '1');
-          sendEmailReport(slot.label);
-        }
+        const sentKey = dateStr + slot.key;
+        const lastSent = s.lastEmailSent || {};
+
+        if (lastSent[sentKey]) continue;
+
+        lastSent[sentKey] = firebase.firestore.Timestamp.now();
+        await saveEmailSettings({ ...s, lastEmailSent: lastSent });
+        await sendEmailReport(slot.label);
       }
-    });
+    }
   }
 
   let emailCheckInterval = null;
@@ -2110,11 +2187,14 @@ header {
     checkEmailSchedule();
   }
 
-  // Init — check for existing session
-  const savedUser = localStorage.getItem('daily5_currentUser');
-  if (savedUser) {
-    setSession(savedUser);
-  }
+  // Auth state observer
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      await setSession(user);
+    } else {
+      clearSession();
+    }
+  });
 
 })();
 </script>
