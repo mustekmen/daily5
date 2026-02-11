@@ -9,7 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1058,13 +1057,13 @@ header {
   transition: all 0.2s;
 }
 
-.btn-test-email {
+.btn-test-notif {
   background: var(--primary-bg);
   border: 1px solid var(--primary-light);
   color: var(--primary);
 }
 
-.btn-test-email:hover {
+.btn-test-notif:hover {
   background: var(--primary);
   color: white;
 }
@@ -1323,34 +1322,25 @@ header {
 <div class="settings-overlay hidden" id="settings-overlay">
   <div class="settings-modal">
     <h2>
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="var(--primary)"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/></svg>
-      Email Reminders
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="var(--primary)"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+      Push Notifications
     </h2>
     <p class="settings-subtitle">Get progress reports at 11:00 AM and 4:00 PM (Istanbul time)</p>
 
     <div class="settings-info">
-      Emails are sent via EmailJS when this tab is open. If the tab is closed at the scheduled time, that email will be skipped. Set up a free account at <strong>emailjs.com</strong> first.
+      Notifications are shown by your browser even when this tab is in the background. The browser must be running at the scheduled time.
     </div>
 
     <div class="settings-toggle-row">
-      <span>Enable email reminders</span>
+      <span>Enable push notifications</span>
       <label class="toggle-switch">
-        <input type="checkbox" id="email-enabled">
+        <input type="checkbox" id="notif-enabled">
         <span class="toggle-slider"></span>
       </label>
     </div>
 
-    <label for="emailjs-service-id">EmailJS Service ID</label>
-    <input type="text" id="emailjs-service-id" placeholder="e.g. service_xxxxxxx">
-
-    <label for="emailjs-template-id">EmailJS Template ID</label>
-    <input type="text" id="emailjs-template-id" placeholder="e.g. template_xxxxxxx">
-
-    <label for="emailjs-public-key">EmailJS Public Key</label>
-    <input type="text" id="emailjs-public-key" placeholder="e.g. your_public_key">
-
     <div class="settings-actions">
-      <button class="btn-test-email" id="btn-test-email">Send Test Email</button>
+      <button class="btn-test-notif" id="btn-test-notif">Test Notification</button>
       <button class="btn-close-settings" id="btn-close-settings">Close</button>
     </div>
 
@@ -1405,7 +1395,7 @@ header {
     render();
 
     if (currentDate === todayStr()) await checkReminders();
-    if (typeof startEmailScheduler === 'function') startEmailScheduler();
+    startNotifScheduler();
   }
 
   function clearSession() {
@@ -1970,13 +1960,36 @@ header {
     setTimeout(() => container.remove(), 5000);
   }
 
-  // --- Email Reminder Settings ---
-  async function getEmailSettings() {
-    if (!currentUser) return {};
+  // --- Push Notification Settings ---
+  let swRegistration = null;
 
+  async function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+      console.warn('[Daily5] Service workers not supported');
+      return;
+    }
+    try {
+      swRegistration = await navigator.serviceWorker.register('sw.js');
+      console.log('[Daily5] Service worker registered');
+    } catch (err) {
+      console.error('[Daily5] SW registration failed:', err);
+    }
+  }
+
+  registerServiceWorker();
+
+  async function requestNotificationPermission() {
+    if (!('Notification' in window)) return 'denied';
+    if (Notification.permission === 'granted') return 'granted';
+    if (Notification.permission === 'denied') return 'denied';
+    return await Notification.requestPermission();
+  }
+
+  async function getNotifSettings() {
+    if (!currentUser) return {};
     try {
       const doc = await db.collection('users').doc(currentUser)
-        .collection('settings').doc('email').get();
+        .collection('settings').doc('notifications').get();
       return doc.exists ? doc.data() : {};
     } catch (error) {
       console.error('[Daily5] Settings load error:', error);
@@ -1984,12 +1997,11 @@ header {
     }
   }
 
-  async function saveEmailSettings(settings) {
+  async function saveNotifSettings(settings) {
     if (!currentUser) return;
-
     try {
       await db.collection('users').doc(currentUser)
-        .collection('settings').doc('email').set(settings);
+        .collection('settings').doc('notifications').set(settings);
     } catch (error) {
       console.error('[Daily5] Settings save error:', error);
       showToast('Failed to save settings', 'error');
@@ -1997,29 +2009,29 @@ header {
   }
 
   async function loadSettingsUI() {
-    const s = await getEmailSettings();
-    document.getElementById('email-enabled').checked = !!s.enabled;
-    document.getElementById('emailjs-service-id').value = s.serviceId || '';
-    document.getElementById('emailjs-template-id').value = s.templateId || '';
-    document.getElementById('emailjs-public-key').value = s.publicKey || '';
+    const s = await getNotifSettings();
+    document.getElementById('notif-enabled').checked = !!s.enabled;
     document.getElementById('settings-status').textContent = '';
     document.getElementById('settings-status').className = 'settings-status';
   }
 
-  function readSettingsFromUI() {
-    return {
-      enabled: document.getElementById('email-enabled').checked,
-      serviceId: document.getElementById('emailjs-service-id').value.trim(),
-      templateId: document.getElementById('emailjs-template-id').value.trim(),
-      publicKey: document.getElementById('emailjs-public-key').value.trim()
-    };
-  }
-
-  // Save on every input change
-  ['email-enabled', 'emailjs-service-id', 'emailjs-template-id', 'emailjs-public-key'].forEach(id => {
-    document.getElementById(id).addEventListener(id === 'email-enabled' ? 'change' : 'input', async () => {
-      await saveEmailSettings(readSettingsFromUI());
-    });
+  // Toggle handler — request permission when enabling
+  document.getElementById('notif-enabled').addEventListener('change', async (e) => {
+    const statusEl = document.getElementById('settings-status');
+    if (e.target.checked) {
+      const permission = await requestNotificationPermission();
+      if (permission !== 'granted') {
+        e.target.checked = false;
+        statusEl.textContent = 'Notification permission denied. Please allow notifications in your browser settings.';
+        statusEl.className = 'settings-status error';
+        await saveNotifSettings({ enabled: false });
+        return;
+      }
+      statusEl.textContent = 'Notifications enabled!';
+      statusEl.className = 'settings-status success';
+    }
+    const s = await getNotifSettings();
+    await saveNotifSettings({ ...s, enabled: e.target.checked });
   });
 
   // Settings modal open/close
@@ -2038,7 +2050,7 @@ header {
     }
   });
 
-  // Build email body from current day's data
+  // Build progress report for notification body
   async function buildProgressReport(timeLabel) {
     if (!currentUser) return null;
     const today = todayStr();
@@ -2057,33 +2069,18 @@ header {
         focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0) / focuses.length
       );
 
-      let lines = [
-        'Daily5 Progress Report — ' + timeLabel,
-        'Date: ' + today,
-        'Overall Progress: ' + overallPct + '%',
-        ''
-      ];
+      const incomplete = focuses.filter(f => calcFocusProgress(f) < 100).length;
 
-      focuses.forEach((f, i) => {
-        const pct = calcFocusProgress(f);
-        lines.push(`${i + 1}. ${f.title || '(Untitled)'} — ${pct}% [${pct === 100 ? 'DONE' : 'IN PROGRESS'}]`);
-        (f.subtasks || []).forEach(st => {
-          lines.push(`   ${st.done ? '[x]' : '[ ]'} ${st.name || '(unnamed)'}`);
-        });
-        lines.push('');
-      });
-
-      if (overallPct < 100) {
-        const incomplete = focuses.filter(f => calcFocusProgress(f) < 100).length;
-        lines.push(`You have ${incomplete} focus area(s) still in progress.`);
-        lines.push("Keep going — you've got this!");
+      let body;
+      if (overallPct === 100) {
+        body = 'All focuses complete! Great work today!';
       } else {
-        lines.push('All focuses complete! Great work today!');
+        body = overallPct + '% complete \u2014 ' + incomplete + ' of ' + focuses.length + ' focuses remaining. Keep going!';
       }
 
       return {
-        subject: 'Daily5 Progress Report — ' + timeLabel,
-        message: lines.join('\n')
+        title: 'Daily5 \u2014 ' + timeLabel + ' Progress Report',
+        body: body
       };
     } catch (error) {
       console.error('[Daily5] Report error:', error);
@@ -2091,32 +2088,41 @@ header {
     }
   }
 
-  // Send email via EmailJS
-  async function sendEmailReport(timeLabel) {
-    const s = await getEmailSettings();
+  // Show push notification via service worker
+  async function showPushNotification(timeLabel) {
+    const s = await getNotifSettings();
     if (!s.enabled || !currentUser) return;
+
+    if (Notification.permission !== 'granted') return;
 
     const report = await buildProgressReport(timeLabel);
     if (!report) return;
 
-    emailjs.send(s.serviceId, s.templateId, {
-      to_email: currentUserEmail,
-      subject: report.subject,
-      message: report.message
-    }, s.publicKey).then(() => {
-      console.log('[Daily5] Email sent:', timeLabel);
-    }).catch(err => {
-      console.error('[Daily5] Email failed:', err);
-    });
+    if (swRegistration && swRegistration.active) {
+      swRegistration.active.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title: report.title,
+        body: report.body,
+        tag: 'daily5-' + timeLabel.replace(/\s/g, '-')
+      });
+    } else {
+      // Fallback: use Notification API directly
+      new Notification(report.title, {
+        body: report.body,
+        tag: 'daily5-' + timeLabel.replace(/\s/g, '-')
+      });
+    }
+
+    console.log('[Daily5] Notification shown:', timeLabel);
   }
 
-  // Test email
-  document.getElementById('btn-test-email').addEventListener('click', async () => {
+  // Test notification
+  document.getElementById('btn-test-notif').addEventListener('click', async () => {
     const statusEl = document.getElementById('settings-status');
-    const s = readSettingsFromUI();
 
-    if (!s.serviceId || !s.templateId || !s.publicKey) {
-      statusEl.textContent = 'Please fill in all EmailJS fields.';
+    const permission = await requestNotificationPermission();
+    if (permission !== 'granted') {
+      statusEl.textContent = 'Notification permission denied. Please allow in browser settings.';
       statusEl.className = 'settings-status error';
       return;
     }
@@ -2125,33 +2131,36 @@ header {
     statusEl.className = 'settings-status';
 
     const report = await buildProgressReport('Test');
-    const message = report ? report.message : 'Test email from Daily5!';
+    const title = report ? report.title : 'Daily5 \u2014 Test Notification';
+    const body = report ? report.body : 'Notifications are working!';
 
-    emailjs.send(s.serviceId, s.templateId, {
-      to_email: currentUserEmail,
-      subject: 'Daily5 — Test Email',
-      message: message
-    }, s.publicKey).then(() => {
-      statusEl.textContent = 'Test email sent successfully!';
-      statusEl.className = 'settings-status success';
-    }).catch(err => {
-      statusEl.textContent = 'Failed: ' + (err.text || 'Unknown error');
-      statusEl.className = 'settings-status error';
-    });
+    if (swRegistration && swRegistration.active) {
+      swRegistration.active.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title: title,
+        body: body,
+        tag: 'daily5-test'
+      });
+    } else {
+      new Notification(title, { body: body, tag: 'daily5-test' });
+    }
+
+    statusEl.textContent = 'Test notification sent!';
+    statusEl.className = 'settings-status success';
   });
 
-  // --- Email Scheduler ---
+  // --- Notification Scheduler ---
   function getIstanbulTime() {
     const now = new Date();
     const istanbulStr = now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' });
     return new Date(istanbulStr);
   }
 
-  async function checkEmailSchedule() {
+  async function checkNotifSchedule() {
     if (!currentUser) return;
 
-    const s = await getEmailSettings();
-    if (!s.enabled || !s.serviceId || !s.templateId || !s.publicKey) return;
+    const s = await getNotifSettings();
+    if (!s.enabled) return;
 
     const istanbul = getIstanbulTime();
     const hour = istanbul.getHours();
@@ -2168,23 +2177,23 @@ header {
     for (const slot of slots) {
       if (hour === slot.hour && minute === slot.minute) {
         const sentKey = dateStr + slot.key;
-        const lastSent = s.lastEmailSent || {};
+        const lastSent = s.lastSent || {};
 
         if (lastSent[sentKey]) continue;
 
         lastSent[sentKey] = firebase.firestore.Timestamp.now();
-        await saveEmailSettings({ ...s, lastEmailSent: lastSent });
-        await sendEmailReport(slot.label);
+        await saveNotifSettings({ ...s, lastSent: lastSent });
+        await showPushNotification(slot.label);
       }
     }
   }
 
-  let emailCheckInterval = null;
+  let notifCheckInterval = null;
 
-  function startEmailScheduler() {
-    if (emailCheckInterval) clearInterval(emailCheckInterval);
-    emailCheckInterval = setInterval(checkEmailSchedule, 60000);
-    checkEmailSchedule();
+  function startNotifScheduler() {
+    if (notifCheckInterval) clearInterval(notifCheckInterval);
+    notifCheckInterval = setInterval(checkNotifSchedule, 60000);
+    checkNotifSchedule();
   }
 
   // Auth state observer
