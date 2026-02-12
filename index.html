@@ -228,6 +228,125 @@ header {
   font-weight: 500;
 }
 
+/* Weekly Overview */
+.weekly-overview {
+  margin-bottom: 28px;
+}
+
+.weekly-toggle-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  box-shadow: var(--shadow);
+}
+
+.weekly-toggle-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.weekly-toggle-btn .toggle-arrow {
+  transition: transform 0.3s;
+  font-size: 0.7rem;
+}
+
+.weekly-toggle-btn.expanded .toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.weekly-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  animation: slideDown 0.3s ease;
+}
+
+.weekly-toggle-btn.expanded {
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.weekly-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.weekly-day-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 36px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.weekly-bar-track {
+  flex: 1;
+  height: 20px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.weekly-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--primary);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0;
+}
+
+.weekly-bar-fill.empty {
+  background: #e5e7eb;
+}
+
+.weekly-bar-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  width: 36px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.weekly-bar-pct.no-data {
+  color: var(--text-muted);
+}
+
+.weekly-avg {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.weekly-avg-value {
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 /* Add Focus Button (full-width dashed) */
 .add-focus-btn {
   width: 100%;
@@ -748,6 +867,8 @@ header {
   .focus-card { padding: 20px; }
   .delete-card { opacity: 1; }
   .delete-subtask { opacity: 0.6; }
+  .weekly-day-label { width: 30px; font-size: 0.7rem; }
+  .weekly-bar-pct { width: 32px; font-size: 0.7rem; }
   .content-panel { padding: 20px 16px; margin: 0 -16px; }
   .calendar-popup { left: 50%; transform: translateX(-50%); width: calc(100vw - 32px); max-width: 320px; }
 }
@@ -1304,6 +1425,14 @@ header {
       </div>
     </div>
 
+    <div class="weekly-overview" id="weekly-overview">
+      <button class="weekly-toggle-btn" id="weekly-toggle-btn">
+        <span>Weekly Overview</span>
+        <span class="toggle-arrow">&#9660;</span>
+      </button>
+      <div class="weekly-chart" id="weekly-chart" style="display:none;"></div>
+    </div>
+
     <div id="add-focus-container"></div>
 
     <div class="cards-grid" id="cards-grid"></div>
@@ -1390,6 +1519,11 @@ header {
     document.getElementById('user-badge').textContent = user.email;
     document.getElementById('auth-screen').classList.add('hidden');
 
+    invalidateWeeklyCache();
+    // Collapse weekly chart on new session
+    document.getElementById('weekly-toggle-btn').classList.remove('expanded');
+    document.getElementById('weekly-chart').style.display = 'none';
+
     currentDate = todayStr();
     await loadDayFromFirestore(currentDate);
     render();
@@ -1402,6 +1536,11 @@ header {
     auth.signOut();
     currentUser = null;
     currentUserEmail = null;
+    weeklyDataCache = null;
+    weeklyDataCacheUser = null;
+    document.getElementById('weekly-toggle-btn').classList.remove('expanded');
+    document.getElementById('weekly-chart').style.display = 'none';
+    document.getElementById('weekly-chart').innerHTML = '';
     document.getElementById('reminder-banner').classList.remove('visible');
     document.getElementById('reminder-list').innerHTML = '';
     document.getElementById('auth-screen').classList.remove('hidden');
@@ -1556,6 +1695,7 @@ header {
             focuses: data.focuses,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+        invalidateWeeklyCache();
       } catch (error) {
         console.error('[Daily5] Save error:', error);
         showToast('Failed to save. Changes may be lost.', 'error');
@@ -1601,6 +1741,113 @@ header {
     document.getElementById('stat-focuses').textContent = data.focuses.length + '/5';
     document.getElementById('stat-completed').textContent = calcCompletedPct() + '%';
     document.getElementById('stat-avg').textContent = calcOverall() + '%';
+  }
+
+  // --- Weekly Overview ---
+  let weeklyDataCache = null;
+  let weeklyDataCacheUser = null;
+
+  async function fetchWeeklyData() {
+    if (!currentUser) return null;
+
+    // Return cache if same user and already fetched
+    if (weeklyDataCache && weeklyDataCacheUser === currentUser) return weeklyDataCache;
+
+    const today = todayStr();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      days.push(shiftDate(today, -i));
+    }
+
+    const results = [];
+    try {
+      for (const dateStr of days) {
+        const doc = await db.collection('users').doc(currentUser)
+          .collection('dailyData').doc(dateStr).get();
+
+        const d = new Date(dateStr.replace(/-/g, '/'));
+        const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+        if (doc.exists) {
+          const dayData = doc.data();
+          const focuses = dayData.focuses || [];
+          if (focuses.length === 0) {
+            results.push({ date: dateStr, label: dayLabel, avg: null });
+          } else {
+            const total = focuses.reduce((sum, f) => sum + calcFocusProgress(f), 0);
+            const avg = Math.round(total / focuses.length);
+            results.push({ date: dateStr, label: dayLabel, avg });
+          }
+        } else {
+          results.push({ date: dateStr, label: dayLabel, avg: null });
+        }
+      }
+    } catch (error) {
+      console.error('[Daily5] Weekly data error:', error);
+      return null;
+    }
+
+    weeklyDataCache = results;
+    weeklyDataCacheUser = currentUser;
+    return results;
+  }
+
+  function renderWeeklyOverview(weekData) {
+    const chart = document.getElementById('weekly-chart');
+    if (!weekData) {
+      chart.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:12px;">No data available</div>';
+      return;
+    }
+
+    const validDays = weekData.filter(d => d.avg !== null);
+    const weeklyAvg = validDays.length > 0
+      ? Math.round(validDays.reduce((s, d) => s + d.avg, 0) / validDays.length)
+      : 0;
+
+    let html = '';
+    for (const day of weekData) {
+      const hasData = day.avg !== null;
+      const pct = hasData ? day.avg : 0;
+      const isToday = day.date === todayStr();
+      const label = isToday ? 'Today' : day.label;
+
+      html += `<div class="weekly-bar-row">
+        <span class="weekly-day-label">${label}</span>
+        <div class="weekly-bar-track">
+          <div class="weekly-bar-fill${hasData ? '' : ' empty'}" style="width:${hasData ? pct : 100}%"></div>
+        </div>
+        <span class="weekly-bar-pct${hasData ? '' : ' no-data'}">${hasData ? pct + '%' : '—'}</span>
+      </div>`;
+    }
+
+    html += `<div class="weekly-avg">
+      <span>Weekly Average</span>
+      <span class="weekly-avg-value">${validDays.length > 0 ? weeklyAvg + '%' : '—'}</span>
+    </div>`;
+
+    chart.innerHTML = html;
+  }
+
+  // Toggle button handler
+  document.getElementById('weekly-toggle-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('weekly-toggle-btn');
+    const chart = document.getElementById('weekly-chart');
+    const isExpanded = btn.classList.contains('expanded');
+
+    if (isExpanded) {
+      btn.classList.remove('expanded');
+      chart.style.display = 'none';
+    } else {
+      btn.classList.add('expanded');
+      chart.style.display = 'block';
+      chart.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:12px;">Loading...</div>';
+      const weekData = await fetchWeeklyData();
+      renderWeeklyOverview(weekData);
+    }
+  });
+
+  function invalidateWeeklyCache() {
+    weeklyDataCache = null;
   }
 
   function render() {
