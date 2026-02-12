@@ -1402,6 +1402,8 @@ header {
     auth.signOut();
     currentUser = null;
     currentUserEmail = null;
+    document.getElementById('reminder-banner').classList.remove('visible');
+    document.getElementById('reminder-list').innerHTML = '';
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('auth-error').textContent = '';
     document.getElementById('auth-email').value = '';
@@ -1969,8 +1971,9 @@ header {
       return;
     }
     try {
-      swRegistration = await navigator.serviceWorker.register('sw.js');
-      console.log('[Daily5] Service worker registered');
+      await navigator.serviceWorker.register('sw.js');
+      swRegistration = await navigator.serviceWorker.ready;
+      console.log('[Daily5] Service worker ready');
     } catch (err) {
       console.error('[Daily5] SW registration failed:', err);
     }
@@ -2098,15 +2101,25 @@ header {
     const report = await buildProgressReport(timeLabel);
     if (!report) return;
 
-    if (swRegistration && swRegistration.active) {
-      swRegistration.active.postMessage({
-        type: 'SHOW_NOTIFICATION',
-        title: report.title,
-        body: report.body,
-        tag: 'daily5-' + timeLabel.replace(/\s/g, '-')
-      });
-    } else {
-      // Fallback: use Notification API directly
+    try {
+      if (!swRegistration && 'serviceWorker' in navigator) {
+        swRegistration = await navigator.serviceWorker.ready;
+      }
+      if (swRegistration) {
+        await swRegistration.showNotification(report.title, {
+          body: report.body,
+          tag: 'daily5-' + timeLabel.replace(/\s/g, '-'),
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎯</text></svg>',
+          requireInteraction: true
+        });
+      } else {
+        new Notification(report.title, {
+          body: report.body,
+          tag: 'daily5-' + timeLabel.replace(/\s/g, '-')
+        });
+      }
+    } catch (err) {
+      console.error('[Daily5] Notification error:', err);
       new Notification(report.title, {
         body: report.body,
         tag: 'daily5-' + timeLabel.replace(/\s/g, '-')
@@ -2134,14 +2147,22 @@ header {
     const title = report ? report.title : 'Daily5 \u2014 Test Notification';
     const body = report ? report.body : 'Notifications are working!';
 
-    if (swRegistration && swRegistration.active) {
-      swRegistration.active.postMessage({
-        type: 'SHOW_NOTIFICATION',
-        title: title,
-        body: body,
-        tag: 'daily5-test'
-      });
-    } else {
+    try {
+      if (!swRegistration && 'serviceWorker' in navigator) {
+        swRegistration = await navigator.serviceWorker.ready;
+      }
+      if (swRegistration) {
+        await swRegistration.showNotification(title, {
+          body: body,
+          tag: 'daily5-test',
+          icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎯</text></svg>',
+          requireInteraction: true
+        });
+      } else {
+        new Notification(title, { body: body, tag: 'daily5-test' });
+      }
+    } catch (err) {
+      console.error('[Daily5] Test notification error:', err);
       new Notification(title, { body: body, tag: 'daily5-test' });
     }
 
@@ -2175,7 +2196,7 @@ header {
     ];
 
     for (const slot of slots) {
-      if (hour === slot.hour && minute === slot.minute) {
+      if (hour === slot.hour && minute >= slot.minute && minute < slot.minute + 5) {
         const sentKey = dateStr + slot.key;
         const lastSent = s.lastSent || {};
 
