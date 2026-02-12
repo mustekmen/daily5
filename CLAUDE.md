@@ -12,19 +12,26 @@ A single-page web app for tracking up to 5 daily focus areas with sub-tasks and 
 ## Key Architecture
 - All app logic is in a single IIFE inside `index.html`
 - Firebase config is inline (public project: `daily5-app`)
-- Firestore structure: `users/{uid}/dailyData/{date}` for daily focuses, `users/{uid}/settings/notifications` for notification preferences
+- Firestore structure: `users/{uid}/dailyData/{date}` for daily focuses, `users/{uid}/templates/{id}` for single-focus templates, `users/{uid}/settings/notifications` for notification preferences
+- Firestore security rules maintained in `firestore.rules` (must be published via Firebase Console)
 - Service worker (`sw.js`) handles showing OS notifications and notification click events
 - Main page communicates with SW via `postMessage`
 
 ## Features
 - 5 focus cards per day with up to 3 sub-tasks each
 - Manual progress (0/25/50/75/100%) for focuses without sub-tasks
+- Per-focus notes (collapsible textarea on each card)
+- Single-focus templates: save any focus card as a reusable template (max 10), load adds one focus
+- Carry forward: bring yesterday's incomplete focuses into today
+- Daily wrap-up modal with progress summary and reflection prompts
 - Date navigation with calendar picker
+- Collapsible weekly overview with 7-day bar chart
 - Yesterday's incomplete items reminder banner
 - Confetti animation on 100% completion
 - Push notifications at 11:00 AM and 4:00 PM Istanbul time
 
 ## Recent Changes
+- **Feb 2026**: Refactored templates to single-focus model (save/load individual focuses instead of sets). Added per-focus notes, daily wrap-up modal, carry forward from yesterday, and collapsible weekly overview.
 - **Feb 2026**: Replaced EmailJS email reminders with Web Push Notifications via Service Worker. Removed all EmailJS dependencies. Settings UI simplified to a single toggle + test button.
 
 ## Running Locally
