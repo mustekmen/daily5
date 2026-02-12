@@ -431,6 +431,25 @@ header {
 
 .reminder-banner .close-banner:hover { background: rgba(0,0,0,0.1); }
 
+.carry-forward-btn {
+  margin-top: 12px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.25);
+}
+.carry-forward-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 40, 217, 0.35);
+}
+
 /* Cards Grid */
 .cards-grid {
   display: grid;
@@ -554,6 +573,26 @@ header {
 .delete-card:hover {
   color: var(--accent-5);
   background: #fef2f2;
+}
+
+.save-template-card {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: 8px;
+  transition: opacity 0.2s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.focus-card:hover .save-template-card { opacity: 1; }
+
+.save-template-card:hover {
+  color: var(--primary);
+  background: var(--primary-bg);
 }
 
 /* Sub-tasks */
@@ -754,6 +793,54 @@ header {
 .focus-card[data-color="3"] .card-progress .progress-fill { background: var(--accent-4); }
 .focus-card[data-color="4"] .card-progress .progress-fill { background: var(--accent-5); }
 
+/* Notes per Focus */
+.focus-notes-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 4px 0;
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+.focus-notes-toggle:hover { color: var(--primary); }
+.focus-notes-toggle.has-note { color: var(--text-secondary); }
+
+.focus-notes-area {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, margin 0.3s ease;
+  margin-bottom: 0;
+}
+.focus-notes-area.expanded {
+  max-height: 200px;
+  margin-bottom: 8px;
+}
+.focus-notes-area textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 150px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  color: var(--text);
+  background: #f9fafb;
+  transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.focus-notes-area textarea:focus { border-color: var(--primary-light); }
+.focus-notes-area textarea::placeholder { color: var(--text-muted); }
+
 /* Empty State */
 .empty-state {
   display: flex;
@@ -865,7 +952,7 @@ header {
   .cards-grid { grid-template-columns: 1fr; gap: 16px; }
   .date-nav .current-date { min-width: 140px; font-size: 0.8rem; }
   .focus-card { padding: 20px; }
-  .delete-card { opacity: 1; }
+  .delete-card, .save-template-card { opacity: 1; }
   .delete-subtask { opacity: 0.6; }
   .weekly-day-label { width: 30px; font-size: 0.7rem; }
   .weekly-bar-pct { width: 32px; font-size: 0.7rem; }
@@ -1219,6 +1306,303 @@ header {
   margin-bottom: 20px;
   line-height: 1.5;
 }
+
+/* Daily Wrap-up */
+.wrapup-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+.wrapup-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary);
+  background: var(--surface-hover);
+}
+.wrapup-btn.has-wrapup {
+  border-color: #a7f3d0;
+  color: var(--accent-3);
+}
+.wrapup-btn.has-wrapup::before {
+  content: '';
+  width: 8px; height: 8px;
+  background: var(--accent-3);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.wrapup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.wrapup-overlay.hidden { display: none; }
+
+.wrapup-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  padding: 32px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.wrapup-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.wrapup-modal .wrapup-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.wrapup-summary {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.wrapup-stat {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+}
+.wrapup-stat .ws-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.wrapup-stat .ws-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.wrapup-modal label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.wrapup-modal textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  outline: none;
+  color: var(--text);
+  transition: border-color 0.2s;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.wrapup-modal textarea:focus { border-color: var(--primary-light); }
+.wrapup-modal textarea::placeholder { color: var(--text-muted); }
+.wrapup-actions {
+  display: flex;
+  gap: 10px;
+}
+.wrapup-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-save-wrapup {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(109,40,217,0.25);
+}
+.btn-save-wrapup:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(109,40,217,0.35); }
+.btn-close-wrapup {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.btn-close-wrapup:hover { background: #f3f4f6; }
+
+/* Focus Templates */
+.templates-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.templates-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.templates-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.templates-overlay.hidden { display: none; }
+
+.templates-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.templates-modal h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.templates-modal .templates-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.template-item {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.template-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.template-item-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.template-item-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.template-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-load-template, .btn-delete-template {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-load-template {
+  background: var(--primary-bg);
+  border: 1px solid var(--primary-light);
+  color: var(--primary);
+}
+.btn-load-template:hover { background: var(--primary); color: white; }
+.btn-delete-template {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: var(--accent-5);
+}
+.btn-delete-template:hover { background: var(--accent-5); color: white; }
+.template-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.templates-actions {
+  display: flex;
+  gap: 10px;
+}
+.templates-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-close-templates {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.btn-close-templates:hover { background: #f3f4f6; }
+
 /* Calendar Popup */
 .calendar-popup {
   position: absolute;
@@ -1445,6 +1829,8 @@ header {
       <p>Add up to 5 focus areas to guide your day</p>
       <button class="empty-state-cta" id="empty-cta">Add Your First Focus</button>
     </div>
+
+    <div id="wrapup-container"></div>
   </div>
 </div>
 
@@ -1474,6 +1860,33 @@ header {
     </div>
 
     <div class="settings-status" id="settings-status"></div>
+  </div>
+</div>
+
+<div class="wrapup-overlay hidden" id="wrapup-overlay">
+  <div class="wrapup-modal">
+    <h2>Daily Wrap-up</h2>
+    <p class="wrapup-subtitle">Reflect on your day and capture lessons learned</p>
+    <div class="wrapup-summary" id="wrapup-summary"></div>
+    <label for="wrapup-went-well">What went well today?</label>
+    <textarea id="wrapup-went-well" placeholder="Wins, progress, things you're proud of..."></textarea>
+    <label for="wrapup-to-improve">What could be improved?</label>
+    <textarea id="wrapup-to-improve" placeholder="Blockers, lessons, things to do differently..."></textarea>
+    <div class="wrapup-actions">
+      <button class="btn-save-wrapup" id="btn-save-wrapup">Save Wrap-up</button>
+      <button class="btn-close-wrapup" id="btn-close-wrapup">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="templates-overlay hidden" id="templates-overlay">
+  <div class="templates-modal">
+    <h2>Focus Templates</h2>
+    <p class="templates-subtitle">Save and reuse individual focuses</p>
+    <div class="template-list" id="template-list"></div>
+    <div class="templates-actions">
+      <button class="btn-close-templates" id="btn-close-templates">Close</button>
+    </div>
   </div>
 </div>
 
@@ -1693,6 +2106,7 @@ header {
           .set({
             date: currentDate,
             focuses: data.focuses,
+            wrapUp: data.wrapUp || null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         invalidateWeeklyCache();
@@ -1869,17 +2283,21 @@ header {
 
     if (data.focuses.length === 0) {
       emptyState.style.display = 'flex';
-      addContainer.innerHTML = '';
+      addContainer.innerHTML = '<button class="templates-btn" id="templates-btn-empty">&#128203; Load from Template</button>';
+      document.getElementById('templates-btn-empty').addEventListener('click', openTemplatesModal);
       grid.style.display = 'none';
     } else {
       emptyState.style.display = 'none';
       grid.style.display = 'grid';
 
+      let addHtml = '<button class="templates-btn" id="templates-btn">&#128203; Templates</button>';
       if (data.focuses.length < 5) {
-        addContainer.innerHTML = '<button class="add-focus-btn" id="add-focus-btn">+ Add New Focus</button>';
+        addHtml += '<button class="add-focus-btn" id="add-focus-btn">+ Add New Focus</button>';
+      }
+      addContainer.innerHTML = addHtml;
+      document.getElementById('templates-btn').addEventListener('click', openTemplatesModal);
+      if (document.getElementById('add-focus-btn')) {
         document.getElementById('add-focus-btn').addEventListener('click', addFocus);
-      } else {
-        addContainer.innerHTML = '';
       }
 
       data.focuses.forEach((focus, fi) => {
@@ -1913,10 +2331,15 @@ header {
           <span class="card-number">${fi + 1} / 5</span>
           <div class="card-header">
             <input type="text" value="${escHtml(focus.title)}" placeholder="What's your focus?" data-fi="${fi}" class="focus-title-input">
+            <button class="save-template-card" data-fi="${fi}" title="Save as template">&#128203;</button>
             <button class="delete-card" data-fi="${fi}">&times;</button>
           </div>
           <div class="subtasks">${subtasksHtml}</div>
           ${(focus.subtasks || []).length < 3 ? `<button class="add-subtask-btn" data-fi="${fi}">+ Add sub-task</button>` : ''}
+          <button class="focus-notes-toggle ${focus.notes ? 'has-note' : ''}" data-fi="${fi}">&#128221; ${focus.notes ? 'Notes' : 'Add note'}</button>
+          <div class="focus-notes-area" data-fi="${fi}">
+            <textarea placeholder="Add notes, context, or blockers..." data-fi="${fi}">${escHtml(focus.notes || '')}</textarea>
+          </div>
           <div class="card-progress">
             <div class="card-progress-label">${progress}%</div>
             <div class="progress-track">
@@ -1930,6 +2353,16 @@ header {
     }
 
     attachCardListeners();
+
+    // Wrap-up button
+    const wrapupContainer = document.getElementById('wrapup-container');
+    if (currentDate === todayStr() && data.focuses.length > 0) {
+      const hasWrapup = data.wrapUp && (data.wrapUp.wentWell || data.wrapUp.toImprove);
+      wrapupContainer.innerHTML = `<button class="wrapup-btn ${hasWrapup ? 'has-wrapup' : ''}" id="wrapup-btn">${hasWrapup ? 'View Wrap-up' : 'Wrap Up Day'}</button>`;
+      document.getElementById('wrapup-btn').addEventListener('click', openWrapupModal);
+    } else {
+      wrapupContainer.innerHTML = '';
+    }
   }
 
   function escHtml(str) {
@@ -1952,6 +2385,42 @@ header {
         data.focuses[fi].title = e.target.value;
         saveDayToFirestore();
         updateStats();
+      });
+    });
+
+    document.querySelectorAll('.save-template-card').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const fi = parseInt(e.target.closest('.save-template-card').dataset.fi);
+        const focus = data.focuses[fi];
+        if (!currentUser) {
+          showToast('Please log in first.', 'error');
+          return;
+        }
+        if (!focus || !focus.title) {
+          showToast('Add a title to this focus first.', 'error');
+          return;
+        }
+        const templates = templatesCache || await loadTemplates();
+        if (templates.length >= 10) {
+          showToast('Maximum 10 templates. Delete one first.', 'error');
+          return;
+        }
+        const name = prompt('Template name:', focus.title);
+        if (!name || !name.trim()) return;
+        try {
+          await db.collection('users').doc(currentUser)
+            .collection('templates').add({
+              name: name.trim(),
+              title: focus.title,
+              subtasks: (focus.subtasks || []).map(s => ({ name: s.name })),
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          templatesCache = null;
+          showToast('Template saved!');
+        } catch (error) {
+          console.error('[Daily5] Template save error:', error);
+          showToast('Save failed: ' + (error.code || error.message), 'error');
+        }
       });
     });
 
@@ -2012,6 +2481,26 @@ header {
         }
         saveDayToFirestore();
         render();
+      });
+    });
+
+    // Notes toggle + textarea
+    document.querySelectorAll('.focus-notes-toggle').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        const area = document.querySelector(`.focus-notes-area[data-fi="${fi}"]`);
+        area.classList.toggle('expanded');
+        if (area.classList.contains('expanded')) {
+          area.querySelector('textarea').focus();
+        }
+      });
+    });
+
+    document.querySelectorAll('.focus-notes-area textarea').forEach(ta => {
+      ta.addEventListener('input', e => {
+        const fi = parseInt(e.target.dataset.fi);
+        data.focuses[fi].notes = e.target.value;
+        saveDayToFirestore();
       });
     });
 
@@ -2164,6 +2653,16 @@ header {
       const banner = document.getElementById('reminder-banner');
       const list = document.getElementById('reminder-list');
       list.innerHTML = incomplete.map(i => '<li>' + escHtml(i) + '</li>').join('');
+
+      // Add carry forward button
+      const existingCfBtn = banner.querySelector('.carry-forward-btn');
+      if (!existingCfBtn) {
+        const cfBtn = document.createElement('button');
+        cfBtn.className = 'carry-forward-btn';
+        cfBtn.id = 'carry-forward-btn';
+        cfBtn.textContent = 'Carry Forward to Today';
+        banner.appendChild(cfBtn);
+      }
       banner.classList.add('visible');
 
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -2463,6 +2962,203 @@ header {
     notifCheckInterval = setInterval(checkNotifSchedule, 60000);
     checkNotifSchedule();
   }
+
+  // --- Carry Forward ---
+  document.getElementById('reminder-banner').addEventListener('click', async (e) => {
+    if (!e.target.classList.contains('carry-forward-btn')) return;
+
+    const availableSlots = 5 - data.focuses.length;
+    if (availableSlots <= 0) {
+      showToast('No room! You already have 5 focuses today.', 'error');
+      return;
+    }
+
+    const yesterday = shiftDate(todayStr(), -1);
+    try {
+      const doc = await db.collection('users').doc(currentUser)
+        .collection('dailyData').doc(yesterday).get();
+      if (!doc.exists) return;
+
+      const yData = doc.data();
+      const incompleteFocuses = (yData.focuses || []).filter(f => f.title && calcFocusProgress(f) < 100);
+
+      if (incompleteFocuses.length === 0) {
+        showToast('No incomplete items to carry forward.', 'error');
+        return;
+      }
+
+      const toCarry = incompleteFocuses.slice(0, availableSlots);
+      for (const f of toCarry) {
+        const newFocus = {
+          title: f.title,
+          subtasks: (f.subtasks || []).map(s => ({ name: s.name, done: false })),
+          notes: f.notes || ''
+        };
+        data.focuses.push(newFocus);
+      }
+
+      await saveDayToFirestore();
+      render();
+      document.getElementById('reminder-banner').classList.remove('visible');
+
+      const carried = toCarry.length;
+      const skipped = incompleteFocuses.length - carried;
+      let msg = carried + ' focus' + (carried > 1 ? 'es' : '') + ' carried forward!';
+      if (skipped > 0) msg += ' (' + skipped + ' skipped — no room)';
+      showToast(msg);
+    } catch (error) {
+      console.error('[Daily5] Carry forward error:', error);
+      showToast('Failed to carry forward items.', 'error');
+    }
+  });
+
+  // --- Daily Wrap-up ---
+  function openWrapupModal() {
+    const overlay = document.getElementById('wrapup-overlay');
+    const summary = document.getElementById('wrapup-summary');
+
+    // Build progress summary
+    const totalFocuses = data.focuses.length;
+    const completedFocuses = data.focuses.filter(f => calcFocusProgress(f) === 100).length;
+    const overallPct = calcOverall();
+    const totalSubtasks = data.focuses.reduce((s, f) => s + (f.subtasks || []).length, 0);
+    const doneSubtasks = data.focuses.reduce((s, f) => s + (f.subtasks || []).filter(st => st.done).length, 0);
+
+    summary.innerHTML = `
+      <div class="wrapup-stat"><div class="ws-value">${overallPct}%</div><div class="ws-label">Overall</div></div>
+      <div class="wrapup-stat"><div class="ws-value">${completedFocuses}/${totalFocuses}</div><div class="ws-label">Focuses Done</div></div>
+      <div class="wrapup-stat"><div class="ws-value">${doneSubtasks}/${totalSubtasks}</div><div class="ws-label">Subtasks Done</div></div>
+    `;
+
+    // Populate textareas
+    document.getElementById('wrapup-went-well').value = (data.wrapUp && data.wrapUp.wentWell) || '';
+    document.getElementById('wrapup-to-improve').value = (data.wrapUp && data.wrapUp.toImprove) || '';
+
+    overlay.classList.remove('hidden');
+  }
+
+  document.getElementById('btn-save-wrapup').addEventListener('click', () => {
+    data.wrapUp = {
+      wentWell: document.getElementById('wrapup-went-well').value,
+      toImprove: document.getElementById('wrapup-to-improve').value,
+      savedAt: new Date().toISOString()
+    };
+    saveDayToFirestore();
+    document.getElementById('wrapup-overlay').classList.add('hidden');
+    render();
+    showToast('Wrap-up saved!');
+  });
+
+  document.getElementById('btn-close-wrapup').addEventListener('click', () => {
+    document.getElementById('wrapup-overlay').classList.add('hidden');
+  });
+
+  document.getElementById('wrapup-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('wrapup-overlay')) {
+      document.getElementById('wrapup-overlay').classList.add('hidden');
+    }
+  });
+
+  // --- Focus Templates ---
+  let templatesCache = null;
+
+  async function loadTemplates() {
+    if (!currentUser) return [];
+    try {
+      const snapshot = await db.collection('users').doc(currentUser)
+        .collection('templates').orderBy('createdAt', 'desc').get();
+      const templates = [];
+      snapshot.forEach(doc => templates.push({ id: doc.id, ...doc.data() }));
+      templatesCache = templates;
+      return templates;
+    } catch (error) {
+      console.error('[Daily5] Templates load error:', error);
+      return templatesCache || [];
+    }
+  }
+
+  async function openTemplatesModal() {
+    const overlay = document.getElementById('templates-overlay');
+    const list = document.getElementById('template-list');
+
+    list.innerHTML = '<div class="template-empty">Loading...</div>';
+    overlay.classList.remove('hidden');
+
+    const templates = await loadTemplates();
+
+    if (templates.length === 0) {
+      list.innerHTML = '<div class="template-empty">No templates yet. Use the save icon on a focus card to create one.</div>';
+    } else {
+      list.innerHTML = templates.map(t => {
+        const subtaskCount = (t.subtasks || []).length;
+        return `<div class="template-item" data-id="${t.id}">
+          <div class="template-item-info">
+            <div class="template-item-name">${escHtml(t.name)}</div>
+            <div class="template-item-meta">${escHtml(t.title || '')}${subtaskCount > 0 ? ' &middot; ' + subtaskCount + ' subtask' + (subtaskCount !== 1 ? 's' : '') : ''}</div>
+          </div>
+          <div class="template-item-actions">
+            <button class="btn-load-template" data-id="${t.id}">Load</button>
+            <button class="btn-delete-template" data-id="${t.id}">Delete</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Event delegation for template list
+  document.getElementById('template-list').addEventListener('click', async (e) => {
+    const loadBtn = e.target.closest('.btn-load-template');
+    const deleteBtn = e.target.closest('.btn-delete-template');
+
+    if (loadBtn) {
+      const id = loadBtn.dataset.id;
+      const templates = templatesCache || await loadTemplates();
+      const template = templates.find(t => t.id === id);
+      if (!template) return;
+
+      if (data.focuses.length >= 5) {
+        showToast('Already at 5 focuses. Remove one first.', 'error');
+        return;
+      }
+
+      data.focuses.push({
+        title: template.title || template.name,
+        subtasks: (template.subtasks || []).map(s => ({ name: s.name, done: false })),
+        notes: ''
+      });
+
+      saveDayToFirestore();
+      render();
+      document.getElementById('templates-overlay').classList.add('hidden');
+      showToast('Focus added from template!');
+    }
+
+    if (deleteBtn) {
+      const id = deleteBtn.dataset.id;
+      if (!confirm('Delete this template?')) return;
+
+      try {
+        await db.collection('users').doc(currentUser)
+          .collection('templates').doc(id).delete();
+        templatesCache = null;
+        await openTemplatesModal(); // refresh list
+        showToast('Template deleted.');
+      } catch (error) {
+        console.error('[Daily5] Template delete error:', error);
+        showToast('Failed to delete template.', 'error');
+      }
+    }
+  });
+
+  document.getElementById('btn-close-templates').addEventListener('click', () => {
+    document.getElementById('templates-overlay').classList.add('hidden');
+  });
+
+  document.getElementById('templates-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('templates-overlay')) {
+      document.getElementById('templates-overlay').classList.add('hidden');
+    }
+  });
 
   // Auth state observer
   auth.onAuthStateChanged(async (user) => {

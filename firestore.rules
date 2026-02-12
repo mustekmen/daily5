@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User documents - only accessible by the user themselves
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Daily data - one document per date
+      match /dailyData/{dateStr} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        // Additional validation on create/update
+        allow create, update: if request.auth.uid == userId
+          && dateStr.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')  // Must be YYYY-MM-DD format
+          && request.resource.data.focuses.size() <= 5;        // Max 5 focuses per day
+      }
+
+      // Focus templates
+      match /templates/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User settings
+      match /settings/{settingType} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
