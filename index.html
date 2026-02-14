@@ -201,6 +201,19 @@ header {
   flex-shrink: 0;
 }
 
+.stat-card-add {
+  cursor: pointer;
+  border: 2px dashed var(--primary-light);
+  background: var(--primary-bg-light);
+  transition: all 0.2s;
+}
+.stat-card-add:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+}
+.stat-card-add.hidden { display: none; }
+.stat-icon.add-icon { background: #ede9fe; }
+
 .stat-icon.blue { background: #dbeafe; }
 .stat-icon.green { background: #d1fae5; }
 .stat-icon.purple { background: #ede9fe; }
@@ -1780,6 +1793,15 @@ header {
     </div>
 
     <div class="stats-row" id="stats-row">
+      <div class="stat-card stat-card-add" id="stat-add-focus" title="Add New Focus">
+        <div class="stat-icon add-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="#6D28D9"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">New</span>
+          <span class="stat-label">Add Focus</span>
+        </div>
+      </div>
       <div class="stat-card">
         <div class="stat-icon blue">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3b82f6"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#3b82f6"/></svg>
@@ -1809,16 +1831,6 @@ header {
       </div>
     </div>
 
-    <div class="weekly-overview" id="weekly-overview">
-      <button class="weekly-toggle-btn" id="weekly-toggle-btn">
-        <span>Weekly Overview</span>
-        <span class="toggle-arrow">&#9660;</span>
-      </button>
-      <div class="weekly-chart" id="weekly-chart" style="display:none;"></div>
-    </div>
-
-    <div id="add-focus-container"></div>
-
     <div class="cards-grid" id="cards-grid"></div>
 
     <div class="empty-state" id="empty-state" style="display:none;">
@@ -1831,6 +1843,16 @@ header {
     </div>
 
     <div id="wrapup-container"></div>
+
+    <div id="add-focus-container"></div>
+
+    <div class="weekly-overview" id="weekly-overview">
+      <button class="weekly-toggle-btn" id="weekly-toggle-btn">
+        <span>Weekly Overview</span>
+        <span class="toggle-arrow">&#9660;</span>
+      </button>
+      <div class="weekly-chart" id="weekly-chart" style="display:none;"></div>
+    </div>
   </div>
 </div>
 
@@ -2155,6 +2177,8 @@ header {
     document.getElementById('stat-focuses').textContent = data.focuses.length + '/5';
     document.getElementById('stat-completed').textContent = calcCompletedPct() + '%';
     document.getElementById('stat-avg').textContent = calcOverall() + '%';
+    const addBtn = document.getElementById('stat-add-focus');
+    addBtn.classList.toggle('hidden', data.focuses.length >= 5);
   }
 
   // --- Weekly Overview ---
@@ -2290,15 +2314,8 @@ header {
       emptyState.style.display = 'none';
       grid.style.display = 'grid';
 
-      let addHtml = '<button class="templates-btn" id="templates-btn">&#128203; Templates</button>';
-      if (data.focuses.length < 5) {
-        addHtml += '<button class="add-focus-btn" id="add-focus-btn">+ Add New Focus</button>';
-      }
-      addContainer.innerHTML = addHtml;
+      addContainer.innerHTML = '<button class="templates-btn" id="templates-btn">&#128203; Templates</button>';
       document.getElementById('templates-btn').addEventListener('click', openTemplatesModal);
-      if (document.getElementById('add-focus-btn')) {
-        document.getElementById('add-focus-btn').addEventListener('click', addFocus);
-      }
 
       data.focuses.forEach((focus, fi) => {
         const card = document.createElement('div');
@@ -2518,6 +2535,7 @@ header {
 
   // Empty state CTA
   document.getElementById('empty-cta').addEventListener('click', addFocus);
+  document.getElementById('stat-add-focus').addEventListener('click', addFocus);
 
   // Date navigation
   document.getElementById('prev-day').addEventListener('click', async () => {
